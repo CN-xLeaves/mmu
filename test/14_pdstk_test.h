@@ -199,8 +199,8 @@ void test_pdstk()
 	
 	
 	
-	// subject 6 : struct unit & destroy
-	printf("PDSTK test subject 6 : struct unit & destroy\n\n");
+	// subject X : struct unit & destroy
+	printf("PDSTK test subject X : struct unit & destroy\n\n");
 	PDSTK_Unit(objSTK);
 	printf("PDSTK object (%p) already unit!\n\n", objSTK);
 	

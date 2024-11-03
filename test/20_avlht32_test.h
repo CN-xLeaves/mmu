@@ -32,12 +32,15 @@ void test_avlht32()
 		printf("AVLHT32 object : %p\t\t\t\tpass! √\n", objHT);
 		printf("\tCount : %d\t\t\t\t=> 0\n", objHT->AVLT.Count);
 		printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objHT->AVLT.objMM.ItemLength, sizeof(AVLTree_NodeBase) + sizeof(HT32_NodeBase) + sizeof(AVLHT32_Test_Struct));
-		printf("\tMM.MMU.Count : %d\t\t\t=> 0\n", objHT->AVLT.objMM.MMU.Count);
-		printf("\tMM.MMU.AllocCount : %d\t\t\t=> 0\n", objHT->AVLT.objMM.MMU.AllocCount);
-		if ( objHT->AVLT.objMM.MMU.Memory ) {
-			printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objHT->AVLT.objMM.MMU.Memory);
+		printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objHT->AVLT.objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+		printf("\tMM.arrMMU.Count : %d\t\t\t=> 0\n", objHT->AVLT.objMM.arrMMU.Count);
+		printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 0\n", objHT->AVLT.objMM.arrMMU.PageMMU.Count);
+		printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 0\n", objHT->AVLT.objMM.arrMMU.PageMMU.AllocCount);
+		printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objHT->AVLT.objMM.arrMMU.PageMMU.AllocStep);
+		if ( objHT->AVLT.objMM.arrMMU.PageMMU.Memory ) {
+			printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objHT->AVLT.objMM.arrMMU.PageMMU.Memory);
 		} else {
-			printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objHT->AVLT.objMM.MMU.Memory);
+			printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objHT->AVLT.objMM.arrMMU.PageMMU.Memory);
 		}
 	} else {
 		printf("AVLHT32 object : %p\t\t\t\tfail! ×\n", objHT);
@@ -65,12 +68,15 @@ void test_avlht32()
 	printf("\nAVLHT32 state : \n");
 	printf("\tCount : %d\t\t\t\t=> 10\n", objHT->AVLT.Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objHT->AVLT.objMM.ItemLength, sizeof(AVLTree_NodeBase) + sizeof(HT32_NodeBase) + sizeof(AVLHT32_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objHT->AVLT.objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objHT->AVLT.objMM.MMU.AllocCount);
-	if ( objHT->AVLT.objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objHT->AVLT.objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objHT->AVLT.objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objHT->AVLT.objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objHT->AVLT.objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objHT->AVLT.objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objHT->AVLT.objMM.arrMMU.PageMMU.AllocStep);
+	if ( objHT->AVLT.objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objHT->AVLT.objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objHT->AVLT.objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objHT->AVLT.objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nAVLHT32 List : \n");
@@ -99,12 +105,15 @@ void test_avlht32()
 	printf("\nAVLHT32 state : \n");
 	printf("\tCount : %d\t\t\t\t=> 5\n", objHT->AVLT.Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objHT->AVLT.objMM.ItemLength, sizeof(AVLTree_NodeBase) + sizeof(HT32_NodeBase) + sizeof(AVLHT32_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objHT->AVLT.objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objHT->AVLT.objMM.MMU.AllocCount);
-	if ( objHT->AVLT.objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objHT->AVLT.objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objHT->AVLT.objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objHT->AVLT.objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objHT->AVLT.objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objHT->AVLT.objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objHT->AVLT.objMM.arrMMU.PageMMU.AllocStep);
+	if ( objHT->AVLT.objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objHT->AVLT.objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objHT->AVLT.objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objHT->AVLT.objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nAVLHT32 List : \n");
@@ -134,12 +143,15 @@ void test_avlht32()
 	printf("\nAVLHT32 state : \n");
 	printf("\tCount : %d\t\t\t\t=> 1000000\n", objHT->AVLT.Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objHT->AVLT.objMM.ItemLength, sizeof(AVLTree_NodeBase) + sizeof(HT32_NodeBase) + sizeof(AVLHT32_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 3907\n", objHT->AVLT.objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t=> 3968\n", objHT->AVLT.objMM.MMU.AllocCount);
-	if ( objHT->AVLT.objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objHT->AVLT.objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objHT->AVLT.objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 3907\n", objHT->AVLT.objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 16\n", objHT->AVLT.objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objHT->AVLT.objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objHT->AVLT.objMM.arrMMU.PageMMU.AllocStep);
+	if ( objHT->AVLT.objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objHT->AVLT.objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objHT->AVLT.objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objHT->AVLT.objMM.arrMMU.PageMMU.Memory);
 	}
 	printf("\n\n\n");
 	system("pause");
@@ -164,12 +176,15 @@ void test_avlht32()
 	printf("\nAVLHT32 state : \n");
 	printf("\tCount : %d\t\t\t\t=> 1000000\n", objHT->AVLT.Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objHT->AVLT.objMM.ItemLength, sizeof(AVLTree_NodeBase) + sizeof(HT32_NodeBase) + sizeof(AVLHT32_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 3907\n", objHT->AVLT.objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t=> 3968\n", objHT->AVLT.objMM.MMU.AllocCount);
-	if ( objHT->AVLT.objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objHT->AVLT.objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objHT->AVLT.objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 3907\n", objHT->AVLT.objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 16\n", objHT->AVLT.objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objHT->AVLT.objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objHT->AVLT.objMM.arrMMU.PageMMU.AllocStep);
+	if ( objHT->AVLT.objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objHT->AVLT.objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objHT->AVLT.objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objHT->AVLT.objMM.arrMMU.PageMMU.Memory);
 	}
 	printf("\n\n\n");
 	system("pause");
@@ -177,20 +192,23 @@ void test_avlht32()
 	
 	
 	
-	// subject 9 : struct unit & destroy
-	printf("AVLHT32 test subject 9 : struct unit & destroy\n\n");
+	// subject X : struct unit & destroy
+	printf("AVLHT32 test subject X : struct unit & destroy\n\n");
 	AVLHT32_Unit(objHT);
 	printf("AVLHT32 object (%p) already unit!\n\n", objHT);
 	
 	printf("\nAVLHT32 state : \n");
 	printf("\tCount : %d\t\t\t\t=> 0\n", objHT->AVLT.Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objHT->AVLT.objMM.ItemLength, sizeof(AVLTree_NodeBase) + sizeof(HT32_NodeBase) + sizeof(AVLHT32_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 0\n", objHT->AVLT.objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 0\n", objHT->AVLT.objMM.MMU.AllocCount);
-	if ( objHT->AVLT.objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objHT->AVLT.objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objHT->AVLT.objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 0\n", objHT->AVLT.objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 0\n", objHT->AVLT.objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 0\n", objHT->AVLT.objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objHT->AVLT.objMM.arrMMU.PageMMU.AllocStep);
+	if ( objHT->AVLT.objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objHT->AVLT.objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objHT->AVLT.objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objHT->AVLT.objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	AVLHT32_Destroy(objHT);

@@ -18,26 +18,29 @@
 
 
 
-#include "test/01_smmu_test.h"
-#include "test/02_pmmu_test.h"
+#include "test/01_pamm_test.h"
+#include "test/02_samm_test.h"
 #include "test/03_mbmu_test.h"
-#include "test/04_mmu256_test.h"
-#include "test/05_mmu64k_test.h"
-#include "test/06_mm256_test.h"
-#include "test/07_mm64k_test.h"
-#include "test/08_ssstk_test.h"
-#include "test/09_psstk_test.h"
-#include "test/10_sdstk_test.h"
-#include "test/11_pdstk_test.h"
-#include "test/12_llist_test.h"
-#include "test/13_avltree_test.h"
-#include "test/14_rbtree_test.h"
-#include "test/15_hash32_test.h"
-#include "test/16_hash64_test.h"
-#include "test/17_avlht32_test.h"
-#include "test/18_avlht64_test.h"
-#include "test/19_rbht32_test.h"
-#include "test/20_rbht64_test.h"
+#include "test/04_bsmm_test.h"
+#include "test/05_mmu256_test.h"
+#include "test/06_mmu64k_test.h"
+#include "test/07_mm256_test.h"
+#include "test/08_mm64k_test.h"
+#include "test/09_mp256_test.h"
+#include "test/10_mp64k_test.h"
+#include "test/11_ssstk_test.h"
+#include "test/12_psstk_test.h"
+#include "test/13_sdstk_test.h"
+#include "test/14_pdstk_test.h"
+#include "test/15_llist_test.h"
+#include "test/16_avltree_test.h"
+#include "test/17_rbtree_test.h"
+#include "test/18_hash32_test.h"
+#include "test/19_hash64_test.h"
+#include "test/20_avlht32_test.h"
+#include "test/21_avlht64_test.h"
+#include "test/22_rbht32_test.h"
+#include "test/23_rbht64_test.h"
 
 
 
@@ -65,13 +68,14 @@ int main(int argc, char** argv)
 	#endif
 	
 	//test_other();
-	//test_smmu();
-	//test_pmmu();
+	//test_pamm();
+	//test_samm();
 	//test_mbmu();
+	//test_bsmm();
 	//test_mmu256();
 	//test_mmu64k();
 	//test_mm256();
-	//test_mm64k();
+	test_mm64k();
 	//test_ssstk();
 	//test_psstk();
 	//test_sdstk();
@@ -84,7 +88,7 @@ int main(int argc, char** argv)
 	//test_avlht32();
 	//test_avlht64();
 	//test_rbht32();
-	test_rbht64();
+	//test_rbht64();
 	
 	return 0;
 }

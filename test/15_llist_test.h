@@ -24,12 +24,15 @@ void test_llist()
 		printf("LList object : %p\t\t\t\t\tpass! √\n", objLL);
 		printf("\tCount : %d\t\t\t\t=> 0\n", objLL->Count);
 		printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objLL->objMM.ItemLength, sizeof(LList_Test_Struct));
-		printf("\tMM.MMU.Count : %d\t\t\t=> 0\n", objLL->objMM.MMU.Count);
-		printf("\tMM.MMU.AllocCount : %d\t\t\t=> 0\n", objLL->objMM.MMU.AllocCount);
-		if ( objLL->objMM.MMU.Memory ) {
-			printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objLL->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objLL->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+		printf("\tMM.arrMMU.Count : %d\t\t\t=> 0\n", objLL->objMM.arrMMU.Count);
+		printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 0\n", objLL->objMM.arrMMU.PageMMU.Count);
+		printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 0\n", objLL->objMM.arrMMU.PageMMU.AllocCount);
+		printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocStep);
+		if ( objLL->objMM.arrMMU.PageMMU.Memory ) {
+			printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objLL->objMM.arrMMU.PageMMU.Memory);
 		} else {
-			printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objLL->objMM.MMU.Memory);
+			printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objLL->objMM.arrMMU.PageMMU.Memory);
 		}
 	} else {
 		printf("LList object : %p\t\t\t\t\tfail! ×\n", objLL);
@@ -72,12 +75,15 @@ void test_llist()
 	printf("\nLList state : \n");
 	printf("\tCount : %d\t\t\t\t=> 5\n", objLL->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objLL->objMM.ItemLength, sizeof(LList_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objLL->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objLL->objMM.MMU.AllocCount);
-	if ( objLL->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objLL->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objLL->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objLL->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objLL->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objLL->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objLL->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nLList values (first to last) : \n");
@@ -117,12 +123,15 @@ void test_llist()
 	printf("\nLList state : \n");
 	printf("\tCount : %d\t\t\t\t=> 10\n", objLL->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objLL->objMM.ItemLength, sizeof(LList_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objLL->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objLL->objMM.MMU.AllocCount);
-	if ( objLL->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objLL->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objLL->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objLL->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objLL->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objLL->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objLL->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nLList values (first to last) : \n");
@@ -166,12 +175,15 @@ void test_llist()
 	printf("\nLList state : \n");
 	printf("\tCount : %d\t\t\t\t=> 15\n", objLL->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objLL->objMM.ItemLength, sizeof(LList_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objLL->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objLL->objMM.MMU.AllocCount);
-	if ( objLL->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objLL->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objLL->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objLL->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objLL->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objLL->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objLL->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nLList values (first to last) : \n");
@@ -215,12 +227,15 @@ void test_llist()
 	printf("\nLList state : \n");
 	printf("\tCount : %d\t\t\t\t=> 20\n", objLL->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objLL->objMM.ItemLength, sizeof(LList_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objLL->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objLL->objMM.MMU.AllocCount);
-	if ( objLL->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objLL->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objLL->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objLL->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objLL->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objLL->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objLL->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nLList values (first to last) : \n");
@@ -258,12 +273,15 @@ void test_llist()
 	printf("\nLList state : \n");
 	printf("\tCount : %d\t\t\t\t=> 18\n", objLL->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objLL->objMM.ItemLength, sizeof(LList_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objLL->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objLL->objMM.MMU.AllocCount);
-	if ( objLL->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objLL->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objLL->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objLL->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objLL->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objLL->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objLL->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nLList values (first to last) : \n");
@@ -301,12 +319,15 @@ void test_llist()
 	printf("\nLList state : \n");
 	printf("\tCount : %d\t\t\t\t=> 16\n", objLL->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objLL->objMM.ItemLength, sizeof(LList_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objLL->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objLL->objMM.MMU.AllocCount);
-	if ( objLL->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objLL->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objLL->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objLL->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objLL->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objLL->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objLL->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nLList values (first to last) : \n");
@@ -348,12 +369,15 @@ void test_llist()
 	printf("\nLList state : \n");
 	printf("\tCount : %d\t\t\t\t=> 12\n", objLL->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objLL->objMM.ItemLength, sizeof(LList_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objLL->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objLL->objMM.MMU.AllocCount);
-	if ( objLL->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objLL->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objLL->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objLL->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objLL->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objLL->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objLL->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nLList values (first to last) : \n");
@@ -381,20 +405,23 @@ void test_llist()
 	
 	
 	
-	// subject 9 : struct unit & destroy
-	printf("LList test subject 9 : struct unit & destroy\n\n");
+	// subject X : struct unit & destroy
+	printf("LList test subject X : struct unit & destroy\n\n");
 	LList_Unit(objLL);
 	printf("LList object (%p) already unit!\n\n", objLL);
 	
 	printf("\nLList state : \n");
 	printf("\tCount : %d\t\t\t\t=> 0\n", objLL->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objLL->objMM.ItemLength, sizeof(LList_Test_Struct));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 0\n", objLL->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 0\n", objLL->objMM.MMU.AllocCount);
-	if ( objLL->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objLL->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objLL->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 0\n", objLL->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 0\n", objLL->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 0\n", objLL->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objLL->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objLL->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objLL->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objLL->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nLList values (first to last) : \n");

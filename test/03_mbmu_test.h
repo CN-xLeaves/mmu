@@ -132,8 +132,8 @@ void test_mbmu()
 	
 	
 	
-	// subject 6 : struct unit & destroy
-	printf("MBMU test subject 6 : struct unit & destroy\n\n");
+	// subject X : struct unit & destroy
+	printf("MBMU test subject X : struct unit & destroy\n\n");
 	MBMU_Unit(objMBMU);
 	printf("MBMU object (%p) already unit!\n\n", objMBMU);
 	

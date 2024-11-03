@@ -225,8 +225,8 @@ void test_sdstk()
 	
 	
 	
-	// subject 6 : struct unit & destroy
-	printf("SDSTK test subject 6 : struct unit & destroy\n\n");
+	// subject X : struct unit & destroy
+	printf("SDSTK test subject X : struct unit & destroy\n\n");
 	SDSTK_Unit(objSTK);
 	printf("SDSTK object (%p) already unit!\n\n", objSTK);
 	

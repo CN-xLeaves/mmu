@@ -1,12 +1,14 @@
 
 
 
-//#define MMU_USE_RPMALLOC
-#define MMU_USE_SMMU
-#define MMU_USE_PMMU
+#define MMU_USE_PAMM
+#define MMU_USE_SAMM
 #define MMU_USE_MBMU
+#define MMU_USE_BSMM
 #define MMU_USE_MM256
 #define MMU_USE_MM64K
+#define MMU_USE_MP256
+#define MMU_USE_MP64K
 #define MMU_USE_SSSTK
 #define MMU_USE_PSSTK
 #define MMU_USE_SDSTK

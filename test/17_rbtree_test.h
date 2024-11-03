@@ -53,12 +53,15 @@ void test_rbtree()
 		printf("\tRootNode : %p\t\t=> 0\n", objTree->RootNode);
 		printf("\tCount : %d\t\t\t\t=> 0\n", objTree->Count);
 		printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objTree->objMM.ItemLength, sizeof(RBT_Test_Struct) + sizeof(RBTree_NodeBase));
-		printf("\tMM.MMU.Count : %d\t\t\t=> 0\n", objTree->objMM.MMU.Count);
-		printf("\tMM.MMU.AllocCount : %d\t\t\t=> 0\n", objTree->objMM.MMU.AllocCount);
-		if ( objTree->objMM.MMU.Memory ) {
-			printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objTree->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objTree->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+		printf("\tMM.arrMMU.Count : %d\t\t\t=> 0\n", objTree->objMM.arrMMU.Count);
+		printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 0\n", objTree->objMM.arrMMU.PageMMU.Count);
+		printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 0\n", objTree->objMM.arrMMU.PageMMU.AllocCount);
+		printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocStep);
+		if ( objTree->objMM.arrMMU.PageMMU.Memory ) {
+			printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objTree->objMM.arrMMU.PageMMU.Memory);
 		} else {
-			printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objTree->objMM.MMU.Memory);
+			printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objTree->objMM.arrMMU.PageMMU.Memory);
 		}
 	} else {
 		printf("RBTree object : %p\t\t\t\tfail! ×\n", objTree);
@@ -86,12 +89,15 @@ void test_rbtree()
 	printf("\tRootNode : %p\t\t=> not 0\n", objTree->RootNode);
 	printf("\tCount : %d\t\t\t\t=> 10\n", objTree->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objTree->objMM.ItemLength, sizeof(RBT_Test_Struct) + sizeof(RBTree_NodeBase));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objTree->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objTree->objMM.MMU.AllocCount);
-	if ( objTree->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objTree->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objTree->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objTree->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objTree->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objTree->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objTree->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nRBTree print : \n");
@@ -117,12 +123,15 @@ void test_rbtree()
 	printf("\tRootNode : %p\t\t=> not 0\n", objTree->RootNode);
 	printf("\tCount : %d\t\t\t\t=> 10\n", objTree->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objTree->objMM.ItemLength, sizeof(RBT_Test_Struct) + sizeof(RBTree_NodeBase));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objTree->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objTree->objMM.MMU.AllocCount);
-	if ( objTree->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objTree->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objTree->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objTree->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objTree->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objTree->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objTree->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nRBTree print : \n");
@@ -150,12 +159,15 @@ void test_rbtree()
 	printf("\tRootNode : %p\t\t=> not 0\n", objTree->RootNode);
 	printf("\tCount : %d\t\t\t\t=> 5\n", objTree->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objTree->objMM.ItemLength, sizeof(RBT_Test_Struct) + sizeof(RBTree_NodeBase));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objTree->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objTree->objMM.MMU.AllocCount);
-	if ( objTree->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objTree->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objTree->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objTree->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objTree->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objTree->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objTree->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nRBTree print : \n");
@@ -183,12 +195,15 @@ void test_rbtree()
 	printf("\tRootNode : %p\t\t=> not 0\n", objTree->RootNode);
 	printf("\tCount : %d\t\t\t\t=> 15\n", objTree->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objTree->objMM.ItemLength, sizeof(RBT_Test_Struct) + sizeof(RBTree_NodeBase));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objTree->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objTree->objMM.MMU.AllocCount);
-	if ( objTree->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objTree->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objTree->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objTree->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objTree->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objTree->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objTree->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nRBTree print : \n");
@@ -216,12 +231,15 @@ void test_rbtree()
 	printf("\tRootNode : %p\t\t=> not 0\n", objTree->RootNode);
 	printf("\tCount : %d\t\t\t\t=> 25\n", objTree->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objTree->objMM.ItemLength, sizeof(RBT_Test_Struct) + sizeof(RBTree_NodeBase));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objTree->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objTree->objMM.MMU.AllocCount);
-	if ( objTree->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objTree->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objTree->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objTree->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objTree->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objTree->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objTree->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nRBTree print : \n");
@@ -254,12 +272,15 @@ void test_rbtree()
 	printf("\tRootNode : %p\t\t=> not 0\n", objTree->RootNode);
 	printf("\tCount : %d\t\t\t\t=> 30\n", objTree->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objTree->objMM.ItemLength, sizeof(RBT_Test_Struct) + sizeof(RBTree_NodeBase));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objTree->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objTree->objMM.MMU.AllocCount);
-	if ( objTree->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objTree->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objTree->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objTree->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objTree->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objTree->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objTree->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nRBTree print : \n");
@@ -292,12 +313,15 @@ void test_rbtree()
 	printf("\tRootNode : %p\t\t=> not 0\n", objTree->RootNode);
 	printf("\tCount : %d\t\t\t\t=> 55\n", objTree->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objTree->objMM.ItemLength, sizeof(RBT_Test_Struct) + sizeof(RBTree_NodeBase));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 1\n", objTree->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 64\n", objTree->objMM.MMU.AllocCount);
-	if ( objTree->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objTree->objMM.MMU.Memory);
+	printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objTree->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+	printf("\tMM.arrMMU.Count : %d\t\t\t=> 1\n", objTree->objMM.arrMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 1\n", objTree->objMM.arrMMU.PageMMU.Count);
+	printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocCount);
+	printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocStep);
+	if ( objTree->objMM.arrMMU.PageMMU.Memory ) {
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objTree->objMM.MMU.Memory);
+		printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objTree->objMM.arrMMU.PageMMU.Memory);
 	}
 	
 	printf("\nRBTree print : \n");
@@ -308,8 +332,8 @@ void test_rbtree()
 	
 	
 	
-	// subject 9 : struct unit & destroy
-	printf("RBTree test subject 9 : struct unit & destroy\n\n");
+	// subject X : struct unit & destroy
+	printf("RBTree test subject X : struct unit & destroy\n\n");
 	RBTree_Unit(objTree);
 	printf("RBTree object (%p) already unit!\n\n", objTree);
 	
@@ -317,13 +341,16 @@ void test_rbtree()
 	printf("\tRootNode : %p\t\t=> 0\n", objTree->RootNode);
 	printf("\tCount : %d\t\t\t\t=> 0\n", objTree->Count);
 	printf("\tMM.ItemLength : %d\t\t\t=> %d\n", objTree->objMM.ItemLength, sizeof(RBT_Test_Struct) + sizeof(RBTree_NodeBase));
-	printf("\tMM.MMU.Count : %d\t\t\t=> 0\n", objTree->objMM.MMU.Count);
-	printf("\tMM.MMU.AllocCount : %d\t\t\t=> 0\n", objTree->objMM.MMU.AllocCount);
-	if ( objTree->objMM.MMU.Memory ) {
-		printf("\tMM.MMU.Memory : %p\t\t\tfail! ×\n", objTree->objMM.MMU.Memory);
-	} else {
-		printf("\tMM.MMU.Memory : %p\t\t\tpass! √\n", objTree->objMM.MMU.Memory);
-	}
+		printf("\tMM.arrMMU.ItemLength : %d\t\t=> %d\n", objTree->objMM.arrMMU.ItemLength, sizeof(MMU256_LLNode));
+		printf("\tMM.arrMMU.Count : %d\t\t\t=> 0\n", objTree->objMM.arrMMU.Count);
+		printf("\tMM.arrMMU.PageMMU.Count : %d\t\t=> 0\n", objTree->objMM.arrMMU.PageMMU.Count);
+		printf("\tMM.arrMMU.PageMMU.AllocCount : %d\t=> 0\n", objTree->objMM.arrMMU.PageMMU.AllocCount);
+		printf("\tMM.arrMMU.PageMMU.AllocStep : %d\t=> 64\n", objTree->objMM.arrMMU.PageMMU.AllocStep);
+		if ( objTree->objMM.arrMMU.PageMMU.Memory ) {
+			printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tfail! ×\n", objTree->objMM.arrMMU.PageMMU.Memory);
+		} else {
+			printf("\tMM.arrMMU.PageMMU.Memory : %p\t\tpass! √\n", objTree->objMM.arrMMU.PageMMU.Memory);
+		}
 	
 	RBTree_Destroy(objTree);
 	printf("\nRBTree object (%p) already destroyed!\n", objTree);

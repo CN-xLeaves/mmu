@@ -52,10 +52,10 @@
 	
 	// 模块依赖处理
 	#ifdef MMU_USE_SDSTK
-		#define MMU_USE_PMMU
+		#define MMU_USE_PAMM
 	#endif
 	#ifdef MMU_USE_PDSTK
-		#define MMU_USE_PMMU
+		#define MMU_USE_PAMM
 	#endif
 	#ifdef MMU_USE_LLIST
 		#define MMU_USE_MM256
@@ -84,16 +84,11 @@
 	#endif
 	#ifdef MMU_USE_MM256
 		#define MMU_USE_MMU256
-		#define MMU_USE_PMMU
+		#define MMU_USE_PAMM
 	#endif
 	#ifdef MMU_USE_MM64K
 		#define MMU_USE_MMU64K
-		#define MMU_USE_PMMU
-	#endif
-	
-	// TCC 暂不支持编译 rpmalloc
-	#ifdef __TINYC__
-		#undef MMU_USE_RPMALLOC
+		#define MMU_USE_PAMM
 	#endif
 	
 	
@@ -103,16 +98,23 @@
 			用于管理各种结构化与非结构化的内存，降低内存申请与释放次数，提升运行效率
 	*/
 	
+	// 内存指针单向链表数据结构
+	typedef struct MemPtr_LLNode {
+		void* Ptr;
+		struct MemPtr_LLNode* Next;
+	} MemPtr_LLNode;
+	
 	// MMU256 和 MMU64K 申请内存固定的前置数据（用于识别内存是哪个管理器分配的）
 	typedef struct {
 		unsigned int ItemFlag;
 	} MMU_Value, *MMU_ValuePtr;
 	
 	// 报错信息
-	#define MMU_ERROR_ALLOC				1
-	#define MMU_ERROR_CREATEMMU			2
-	#define MMU_ERROR_ADDMMU			3
-	#define MMU_ERROR_GETMMU			4
+	#define STK_ERROR_ALLOC				1
+	#define MM_ERROR_CREATEMMU			2
+	#define MM_ERROR_ADDMMU				3
+	#define MM_ERROR_GETMMU				4
+	#define MM_ERROR_NULLMMU			5
 	
 	// 报错回调函数定义
 	typedef void (*MMU_OnErrorProc)(void* objMM, int ErrorID);
@@ -127,24 +129,13 @@
 	#define MMU_FLAG_GC					0x40000000
 	
 	// MM256 or MM64K GC标记
-	static inline void MM_GC_Mark_Inline(void* ptr)
-	{
-		MMU_ValuePtr v = ptr - sizeof(MMU_Value);
-		v->ItemFlag |= MMU_FLAG_GC;
-	}
+	#define MM_GC_Mark(p) ((MMU_ValuePtr)((void*)p - sizeof(MMU_Value)))->ItemFlag |= MMU_FLAG_GC
 	
 	// 内存分配器定义
-	#ifdef MMU_USE_RPMALLOC
-		#define mmu_realloc	rprealloc
-		#define mmu_malloc	rpmalloc
-		#define mmu_calloc	rpcalloc
-		#define mmu_free	rpfree
-	#else
-		#define mmu_realloc	realloc
-		#define mmu_malloc	malloc
-		#define mmu_calloc	calloc
-		#define mmu_free	free
-	#endif
+	#define mmu_realloc	realloc
+	#define mmu_malloc	malloc
+	#define mmu_calloc	calloc
+	#define mmu_free	free
 		
 	// 32位哈希表节点基础定义
 	typedef struct {
@@ -164,16 +155,16 @@
 	typedef int (*HT32_EachProc)(HT32_NodeBase* pKey, void* pVal, void* pArg);
 	typedef int (*HT64_EachProc)(HT64_NodeBase* pKey, void* pVal, void* pArg);
 	
-	// 初始化 MMU 库
+	// 初始化 MMU 库（预留未来使用的兼容性函数，目前为空函数）
 	XXAPI int MMU_Init();
 	
-	// 卸载 MMU 库
+	// 卸载 MMU 库（预留未来使用的兼容性函数，目前为空函数）
 	XXAPI void MMU_Unit();
 	
-	// 线程初始化 MMU 库
+	// 线程初始化 MMU 库（预留未来使用的兼容性函数，目前为空函数）
 	XXAPI int MMU_Thread_Init();
 	
-	// 线程卸载 MMU 库
+	// 线程卸载 MMU 库（预留未来使用的兼容性函数，目前为空函数）
 	XXAPI void MMU_Thread_Unit();
 	
 	
@@ -181,384 +172,82 @@
 	
 	
 	/*
-		rpmalloc [Ver1.4.5, Update : 2024/10/30 from https://github.com/mjansson/rpmalloc]
-			内存分配器
+		Point Array Memory Management [指针数组内存管理器]
+			成员编号规则（0为不存在的成员编号）：
+				┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬────┐
+				│01│02│03│04│05│06│07│08│09│10│11│12│ .. │
+				└──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴────┘
 	*/
 	
-	#ifdef MMU_USE_RPMALLOC
+	#ifdef MMU_USE_PAMM
 		
-		#define RPMALLOC_CACHE_LINE_SIZE 64
-		#if defined(__clang__) || defined(__GNUC__)
-		#define RPMALLOC_EXPORT __attribute__((visibility("default")))
-		#define RPMALLOC_RESTRICT __restrict
-		#define RPMALLOC_ALLOCATOR
-		#define RPMALLOC_CACHE_ALIGNED __attribute__((aligned(RPMALLOC_CACHE_LINE_SIZE)))
-		#if (defined(__clang_major__) && (__clang_major__ < 4)) || (!defined(__clang_major__) && defined(__GNUC__))
-		#define RPMALLOC_ATTRIB_MALLOC
-		#define RPMALLOC_ATTRIB_ALLOC_SIZE(size)
-		#define RPMALLOC_ATTRIB_ALLOC_SIZE2(count, size)
-		#else
-		#define RPMALLOC_ATTRIB_MALLOC __attribute__((__malloc__))
-		#define RPMALLOC_ATTRIB_ALLOC_SIZE(size) __attribute__((alloc_size(size)))
-		#define RPMALLOC_ATTRIB_ALLOC_SIZE2(count, size) __attribute__((alloc_size(count, size)))
+		// 申请步长
+		#ifndef PAMM_PREASSIGNSTEP
+			#define PAMM_PREASSIGNSTEP	256
 		#endif
-		#define RPMALLOC_CDECL
-		#elif defined(_MSC_VER)
-		#define RPMALLOC_EXPORT
-		#define RPMALLOC_RESTRICT __declspec(restrict)
-		#define RPMALLOC_ALLOCATOR __declspec(allocator) __declspec(restrict)
-		#define RPMALLOC_CACHE_ALIGNED __declspec(align(RPMALLOC_CACHE_LINE_SIZE))
-		#define RPMALLOC_ATTRIB_MALLOC
-		#define RPMALLOC_ATTRIB_ALLOC_SIZE(size)
-		#define RPMALLOC_ATTRIB_ALLOC_SIZE2(count, size)
-		#define RPMALLOC_CDECL __cdecl
-		#else
-		#define RPMALLOC_EXPORT
-		#define RPMALLOC_ALLOCATOR
-		#define RPMALLOC_ATTRIB_MALLOC
-		#define RPMALLOC_ATTRIB_ALLOC_SIZE(size)
-		#define RPMALLOC_ATTRIB_ALLOC_SIZE2(count, size)
-		#define RPMALLOC_CDECL
-		#endif
-
-		#define RPMALLOC_MAX_ALIGNMENT (256 * 1024)
-
-		//! Define RPMALLOC_FIRST_CLASS_HEAPS to enable heap based API (rpmalloc_heap_* functions).
-		#ifndef RPMALLOC_FIRST_CLASS_HEAPS
-		#define RPMALLOC_FIRST_CLASS_HEAPS 0
-		#endif
-
-		//! Flag to rpaligned_realloc to not preserve content in reallocation
-		#define RPMALLOC_NO_PRESERVE 1
-		//! Flag to rpaligned_realloc to fail and return null pointer if grow cannot be done in-place,
-		//  in which case the original pointer is still valid (just like a call to realloc which failes to allocate
-		//  a new block).
-		#define RPMALLOC_GROW_OR_FAIL 2
-
-		typedef struct rpmalloc_global_statistics_t {
-			//! Current amount of virtual memory mapped, all of which might not have been committed (only if
-			//! ENABLE_STATISTICS=1)
-			size_t mapped;
-			//! Peak amount of virtual memory mapped, all of which might not have been committed (only if ENABLE_STATISTICS=1)
-			size_t mapped_peak;
-			//! Current amount of memory in global caches for small and medium sizes (<32KiB)
-			size_t cached;
-			//! Current amount of memory allocated in huge allocations, i.e larger than LARGE_SIZE_LIMIT which is 2MiB by
-			//! default (only if ENABLE_STATISTICS=1)
-			size_t huge_alloc;
-			//! Peak amount of memory allocated in huge allocations, i.e larger than LARGE_SIZE_LIMIT which is 2MiB by default
-			//! (only if ENABLE_STATISTICS=1)
-			size_t huge_alloc_peak;
-			//! Total amount of memory mapped since initialization (only if ENABLE_STATISTICS=1)
-			size_t mapped_total;
-			//! Total amount of memory unmapped since initialization  (only if ENABLE_STATISTICS=1)
-			size_t unmapped_total;
-		} rpmalloc_global_statistics_t;
-
-		typedef struct rpmalloc_thread_statistics_t {
-			//! Current number of bytes available in thread size class caches for small and medium sizes (<32KiB)
-			size_t sizecache;
-			//! Current number of bytes available in thread span caches for small and medium sizes (<32KiB)
-			size_t spancache;
-			//! Total number of bytes transitioned from thread cache to global cache (only if ENABLE_STATISTICS=1)
-			size_t thread_to_global;
-			//! Total number of bytes transitioned from global cache to thread cache (only if ENABLE_STATISTICS=1)
-			size_t global_to_thread;
-			//! Per span count statistics (only if ENABLE_STATISTICS=1)
-			struct {
-				//! Currently used number of spans
-				size_t current;
-				//! High water mark of spans used
-				size_t peak;
-				//! Number of spans transitioned to global cache
-				size_t to_global;
-				//! Number of spans transitioned from global cache
-				size_t from_global;
-				//! Number of spans transitioned to thread cache
-				size_t to_cache;
-				//! Number of spans transitioned from thread cache
-				size_t from_cache;
-				//! Number of spans transitioned to reserved state
-				size_t to_reserved;
-				//! Number of spans transitioned from reserved state
-				size_t from_reserved;
-				//! Number of raw memory map calls (not hitting the reserve spans but resulting in actual OS mmap calls)
-				size_t map_calls;
-			} span_use[64];
-			//! Per size class statistics (only if ENABLE_STATISTICS=1)
-			struct {
-				//! Current number of allocations
-				size_t alloc_current;
-				//! Peak number of allocations
-				size_t alloc_peak;
-				//! Total number of allocations
-				size_t alloc_total;
-				//! Total number of frees
-				size_t free_total;
-				//! Number of spans transitioned to cache
-				size_t spans_to_cache;
-				//! Number of spans transitioned from cache
-				size_t spans_from_cache;
-				//! Number of spans transitioned from reserved state
-				size_t spans_from_reserved;
-				//! Number of raw memory map calls (not hitting the reserve spans but resulting in actual OS mmap calls)
-				size_t map_calls;
-			} size_use[128];
-		} rpmalloc_thread_statistics_t;
-
-		typedef struct rpmalloc_interface_t {
-			//! Map memory pages for the given number of bytes. The returned address MUST be aligned to the given alignment,
-			//! which will always be either 0 or the span size. The function can store an alignment offset in the offset
-			//! variable in case it performs alignment and the returned pointer is offset from the actual start of the memory
-			//! region due to this alignment. This alignment offset will be passed to the memory unmap function. The mapped size
-			//! can be stored in the mapped_size variable, which will also be passed to the memory unmap function as the release
-			//! parameter once the entire mapped region is ready to be released. If you set a memory_map function, you must also
-			//! set a memory_unmap function or else the default implementation will be used for both. This function must be
-			//! thread safe, it can be called by multiple threads simultaneously.
-			void* (*memory_map)(size_t size, size_t alignment, size_t* offset, size_t* mapped_size);
-			//! Commit a range of memory pages
-			void (*memory_commit)(void* address, size_t size);
-			//! Decommit a range of memory pages
-			void (*memory_decommit)(void* address, size_t size);
-			//! Unmap the memory pages starting at address and spanning the given number of bytes. If you set a memory_unmap
-			//! function, you must also set a memory_map function or else the default implementation will be used for both. This
-			//! function must be thread safe, it can be called by multiple threads simultaneously.
-			void (*memory_unmap)(void* address, size_t offset, size_t mapped_size);
-			//! Called when a call to map memory pages fails (out of memory). If this callback is not set or returns zero the
-			//! library will return a null pointer in the allocation call. If this callback returns non-zero the map call will
-			//! be retried. The argument passed is the number of bytes that was requested in the map call. Only used if the
-			//! default system memory map function is used (memory_map callback is not set).
-			int (*map_fail_callback)(size_t size);
-			//! Called when an assert fails, if asserts are enabled. Will use the standard assert() if this is not set.
-			void (*error_callback)(const char* message);
-		} rpmalloc_interface_t;
-
-		typedef struct rpmalloc_config_t {
-			//! Size of memory pages. The page size MUST be a power of two. All memory mapping
-			//  requests to memory_map will be made with size set to a multiple of the page size.
-			//  Set to 0 to use the OS default page size.
-			size_t page_size;
-			//! Enable use of large/huge pages. If this flag is set to non-zero and page size is
-			//  zero, the allocator will try to enable huge pages and auto detect the configuration.
-			//  If this is set to non-zero and page_size is also non-zero, the allocator will
-			//  assume huge pages have been configured and enabled prior to initializing the
-			//  allocator.
-			//  For Windows, see https://docs.microsoft.com/en-us/windows/desktop/memory/large-page-support
-			//  For Linux, see https://www.kernel.org/doc/Documentation/vm/hugetlbpage.txt
-			int enable_huge_pages;
-			//! Disable decommitting unused pages when allocator determines the memory pressure
-			//  is low and there is enough active pages cached. If set to 1, keep all pages committed.
-			int disable_decommit;
-			//! Allocated pages names for systems supporting it to be able to distinguish among anonymous regions.
-			const char* page_name;
-			//! Allocated huge pages names for systems supporting it to be able to distinguish among anonymous regions.
-			const char* huge_page_name;
-			//! Unmap all memory on finalize if set to 1. Normally you can let the OS unmap all pages
-			//  when process exits, but if using rpmalloc in a dynamic library you might want to unmap
-			//  all pages when the dynamic library unloads to avoid process memory leaks and bloat.
-			int unmap_on_finalize;
-		#if defined(__linux__) || defined(__ANDROID__)
-			///! Allows to disable the Transparent Huge Page feature on Linux on a process basis,
-			///  rather than enabling/disabling system-wise (done via /sys/kernel/mm/transparent_hugepage/enabled).
-			///  It can possibly improve performance and reduced allocation overhead in some contexts, albeit
-			///  THP is usually enabled by default.
-			int disable_thp;
-		#endif
-		} rpmalloc_config_t;
-
-		//! Initialize allocator
-		RPMALLOC_EXPORT int
-		rpmalloc_initialize(rpmalloc_interface_t* memory_interface);
-
-		//! Initialize allocator
-		RPMALLOC_EXPORT int
-		rpmalloc_initialize_config(rpmalloc_interface_t* memory_interface, rpmalloc_config_t* config);
-
-		//! Get allocator configuration
-		RPMALLOC_EXPORT const rpmalloc_config_t*
-		rpmalloc_config(void);
-
-		//! Finalize allocator
-		RPMALLOC_EXPORT void
-		rpmalloc_finalize(void);
-
-		//! Initialize allocator for calling thread
-		RPMALLOC_EXPORT void
-		rpmalloc_thread_initialize(void);
-
-		//! Finalize allocator for calling thread
-		RPMALLOC_EXPORT void
-		rpmalloc_thread_finalize(void);
-
-		//! Perform deferred deallocations pending for the calling thread heap
-		RPMALLOC_EXPORT void
-		rpmalloc_thread_collect(void);
-
-		//! Query if allocator is initialized for calling thread
-		RPMALLOC_EXPORT int
-		rpmalloc_is_thread_initialized(void);
-
-		//! Get per-thread statistics
-		RPMALLOC_EXPORT void
-		rpmalloc_thread_statistics(rpmalloc_thread_statistics_t* stats);
-
-		//! Get global statistics
-		RPMALLOC_EXPORT void
-		rpmalloc_global_statistics(rpmalloc_global_statistics_t* stats);
-
-		//! Dump all statistics in human readable format to file (should be a FILE*)
-		RPMALLOC_EXPORT void
-		rpmalloc_dump_statistics(void* file);
-
-		//! Allocate a memory block of at least the given size
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpmalloc(size_t size) RPMALLOC_ATTRIB_MALLOC RPMALLOC_ATTRIB_ALLOC_SIZE(1);
-
-		//! Allocate a zero initialized memory block of at least the given size
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpzalloc(size_t size) RPMALLOC_ATTRIB_MALLOC RPMALLOC_ATTRIB_ALLOC_SIZE(1);
-
-		//! Allocate a memory block of at least the given size and zero initialize it
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpcalloc(size_t num, size_t size) RPMALLOC_ATTRIB_MALLOC RPMALLOC_ATTRIB_ALLOC_SIZE2(1, 2);
-
-		//! Reallocate the given block to at least the given size
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rprealloc(void* ptr, size_t size) RPMALLOC_ATTRIB_MALLOC RPMALLOC_ATTRIB_ALLOC_SIZE(2);
-
-		//! Reallocate the given block to at least the given size and alignment,
-		//  with optional control flags (see RPMALLOC_NO_PRESERVE).
-		//  Alignment must be a power of two and a multiple of sizeof(void*),
-		//  and should ideally be less than memory page size. A caveat of rpmalloc
-		//  internals is that this must also be strictly less than the span size (default 64KiB)
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpaligned_realloc(void* ptr, size_t alignment, size_t size, size_t oldsize, unsigned int flags) RPMALLOC_ATTRIB_MALLOC
-			RPMALLOC_ATTRIB_ALLOC_SIZE(3);
-
-		//! Allocate a memory block of at least the given size and alignment.
-		//  Alignment must be a power of two and a multiple of sizeof(void*),
-		//  and should ideally be less than memory page size. A caveat of rpmalloc
-		//  internals is that this must also be strictly less than the span size (default 64KiB)
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpaligned_alloc(size_t alignment, size_t size) RPMALLOC_ATTRIB_MALLOC RPMALLOC_ATTRIB_ALLOC_SIZE(2);
-
-		//! Allocate a memory block of at least the given size and alignment.
-		//  Alignment must be a power of two and a multiple of sizeof(void*),
-		//  and should ideally be less than memory page size. A caveat of rpmalloc
-		//  internals is that this must also be strictly less than the span size (default 64KiB)
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpaligned_zalloc(size_t alignment, size_t size) RPMALLOC_ATTRIB_MALLOC RPMALLOC_ATTRIB_ALLOC_SIZE(2);
-
-		//! Allocate a memory block of at least the given size and alignment, and zero initialize it.
-		//  Alignment must be a power of two and a multiple of sizeof(void*),
-		//  and should ideally be less than memory page size. A caveat of rpmalloc
-		//  internals is that this must also be strictly less than the span size (default 64KiB)
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpaligned_calloc(size_t alignment, size_t num, size_t size) RPMALLOC_ATTRIB_MALLOC RPMALLOC_ATTRIB_ALLOC_SIZE2(2, 3);
-
-		//! Allocate a memory block of at least the given size and alignment.
-		//  Alignment must be a power of two and a multiple of sizeof(void*),
-		//  and should ideally be less than memory page size. A caveat of rpmalloc
-		//  internals is that this must also be strictly less than the span size (default 64KiB)
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpmemalign(size_t alignment, size_t size) RPMALLOC_ATTRIB_MALLOC RPMALLOC_ATTRIB_ALLOC_SIZE(2);
-
-		//! Allocate a memory block of at least the given size and alignment.
-		//  Alignment must be a power of two and a multiple of sizeof(void*),
-		//  and should ideally be less than memory page size. A caveat of rpmalloc
-		//  internals is that this must also be strictly less than the span size (default 64KiB)
-		RPMALLOC_EXPORT int
-		rpposix_memalign(void** memptr, size_t alignment, size_t size);
-
-		//! Free the given memory block
-		RPMALLOC_EXPORT void
-		rpfree(void* ptr);
-
-		//! Query the usable size of the given memory block (from given pointer to the end of block)
-		RPMALLOC_EXPORT size_t
-		rpmalloc_usable_size(void* ptr);
-
-		//! Dummy empty function for forcing linker symbol inclusion
-		RPMALLOC_EXPORT void
-		rpmalloc_linker_reference(void);
-
-		#if RPMALLOC_FIRST_CLASS_HEAPS
-
-		//! Heap type
-		typedef struct heap_t rpmalloc_heap_t;
-
-		//! Acquire a new heap. Will reuse existing released heaps or allocate memory for a new heap
-		//  if none available. Heap API is implemented with the strict assumption that only one single
-		//  thread will call heap functions for a given heap at any given time, no functions are thread safe.
-		RPMALLOC_EXPORT rpmalloc_heap_t*
-		rpmalloc_heap_acquire(void);
-
-		//! Release a heap (does NOT free the memory allocated by the heap, use rpmalloc_heap_free_all before destroying the
-		//! heap).
-		//  Releasing a heap will enable it to be reused by other threads. Safe to pass a null pointer.
-		RPMALLOC_EXPORT void
-		rpmalloc_heap_release(rpmalloc_heap_t* heap);
-
-		//! Allocate a memory block of at least the given size using the given heap.
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpmalloc_heap_alloc(rpmalloc_heap_t* heap, size_t size) RPMALLOC_ATTRIB_MALLOC RPMALLOC_ATTRIB_ALLOC_SIZE(2);
-
-		//! Allocate a memory block of at least the given size using the given heap. The returned
-		//  block will have the requested alignment. Alignment must be a power of two and a multiple of sizeof(void*),
-		//  and should ideally be less than memory page size. A caveat of rpmalloc
-		//  internals is that this must also be strictly less than the span size (default 64KiB).
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpmalloc_heap_aligned_alloc(rpmalloc_heap_t* heap, size_t alignment, size_t size) RPMALLOC_ATTRIB_MALLOC
-			RPMALLOC_ATTRIB_ALLOC_SIZE(3);
-
-		//! Allocate a memory block of at least the given size using the given heap and zero initialize it.
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpmalloc_heap_calloc(rpmalloc_heap_t* heap, size_t num, size_t size) RPMALLOC_ATTRIB_MALLOC
-			RPMALLOC_ATTRIB_ALLOC_SIZE2(2, 3);
-
-		//! Allocate a memory block of at least the given size using the given heap and zero initialize it. The returned
-		//  block will have the requested alignment. Alignment must either be zero, or a power of two and a multiple of
-		//  sizeof(void*), and should ideally be less than memory page size. A caveat of rpmalloc internals is that this must
-		//  also be strictly less than the span size (default 64KiB).
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpmalloc_heap_aligned_calloc(rpmalloc_heap_t* heap, size_t alignment, size_t num, size_t size) RPMALLOC_ATTRIB_MALLOC
-			RPMALLOC_ATTRIB_ALLOC_SIZE2(2, 3);
-
-		//! Reallocate the given block to at least the given size. The memory block MUST be allocated
-		//  by the same heap given to this function.
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpmalloc_heap_realloc(rpmalloc_heap_t* heap, void* ptr, size_t size, unsigned int flags) RPMALLOC_ATTRIB_MALLOC
-			RPMALLOC_ATTRIB_ALLOC_SIZE(3);
-
-		//! Reallocate the given block to at least the given size. The memory block MUST be allocated
-		//  by the same heap given to this function. The returned block will have the requested alignment.
-		//  Alignment must be either zero, or a power of two and a multiple of sizeof(void*), and should ideally be
-		//  less than memory page size. A caveat of rpmalloc internals is that this must also be strictly less than
-		//  the span size (default 64KiB).
-		RPMALLOC_EXPORT RPMALLOC_ALLOCATOR void*
-		rpmalloc_heap_aligned_realloc(rpmalloc_heap_t* heap, void* ptr, size_t alignment, size_t size,
-									  unsigned int flags) RPMALLOC_ATTRIB_MALLOC RPMALLOC_ATTRIB_ALLOC_SIZE(4);
-
-		//! Free the given memory block from the given heap. The memory block MUST be allocated
-		//  by the same heap given to this function.
-		RPMALLOC_EXPORT void
-		rpmalloc_heap_free(rpmalloc_heap_t* heap, void* ptr);
-
-		//! Free all memory allocated by the heap
-		RPMALLOC_EXPORT void
-		rpmalloc_heap_free_all(rpmalloc_heap_t* heap);
-
-		//! Set the given heap as the current heap for the calling thread. A heap MUST only be current heap
-		//  for a single thread, a heap can never be shared between multiple threads. The previous
-		//  current heap for the calling thread is released to be reused by other threads.
-		RPMALLOC_EXPORT void
-		rpmalloc_heap_thread_set_current(rpmalloc_heap_t* heap);
-
-		//! Returns which heap the given pointer is allocated on
-		RPMALLOC_EXPORT rpmalloc_heap_t*
-		rpmalloc_get_heap_for_ptr(void* ptr);
-
-		#endif
+		
+		// 指针数组内存管理器数据结构
+		typedef struct {
+			void** Memory;							// 管理器内存指针
+			unsigned int Count;						// 管理器中存在多少成员
+			unsigned int AllocCount;				// 已经申请的结构数量
+			unsigned int AllocStep;					// 预分配内存步长
+		} PAMM_Struct, *PAMM_Object;
+		
+		// 创建指针内存管理器
+		XXAPI PAMM_Object PAMM_Create();
+		
+		// 销毁指针内存管理器
+		XXAPI void PAMM_Destroy(PAMM_Object pObject);
+		
+		// 初始化内存管理器（对自维护结构体指针使用，和 PAMM_Create 功能类似）
+		XXAPI void PAMM_Init(PAMM_Object pObject);
+		
+		// 释放内存管理器（对自维护结构体指针使用，和 PAMM_Destroy 功能类似）
+		XXAPI void PAMM_Unit(PAMM_Object pObject);
+		
+		// 分配内存
+		XXAPI int PAMM_Malloc(PAMM_Object pObject, unsigned int iCount);
+		
+		// 中间插入成员(0为头部插入，pObject->Count为末尾插入)
+		XXAPI unsigned int PAMM_Insert(PAMM_Object pObject, unsigned int iPos, void* pVal);
+		
+		// 末尾添加成员
+		XXAPI unsigned int PAMM_Append(PAMM_Object pObject, void* pVal);
+		
+		// 添加成员，自动查找空隙（替换为 NULL 的值）
+		XXAPI unsigned int PAMM_AddAlt(PAMM_Object pObject, void* pVal);
+		
+		// 交换成员
+		XXAPI int PAMM_Swap(PAMM_Object pObject, unsigned int iPosA, unsigned int iPosB);
+		
+		// 删除成员
+		XXAPI int PAMM_Remove(PAMM_Object pObject, unsigned int iPos, unsigned int iCount);
+		
+		// 获取成员指针
+		XXAPI void** PAMM_GetPtr(PAMM_Object pObject, unsigned int iPos);
+		XXAPI void* PAMM_GetVal(PAMM_Object pObject, unsigned int iPos);
+		XXAPI void** PAMM_GetPtr_Unsafe(PAMM_Object pObject, unsigned int iPos);
+		XXAPI void* PAMM_GetVal_Unsafe(PAMM_Object pObject, unsigned int iPos);
+		static inline void** PAMM_GetPtr_Inline(PAMM_Object pObject, unsigned int iPos)
+		{
+			return &(pObject->Memory[iPos - 1]);
+		}
+		static inline void* PAMM_GetVal_Inline(PAMM_Object pObject, unsigned int iPos)
+		{
+			return pObject->Memory[iPos - 1];
+		}
+		
+		// 设置成员指针
+		XXAPI int PAMM_SetVal(PAMM_Object pObject, unsigned int iPos, void* pVal);
+		XXAPI void PAMM_SetVal_Unsafe(PAMM_Object pObject, unsigned int iPos, void* pVal);
+		static inline void PAMM_SetVal_Inline(PAMM_Object pObject, unsigned int iPos, void* pVal)
+		{
+			pObject->Memory[iPos - 1] = pVal;
+		}
+		
+		// 成员排序
+		XXAPI int PAMM_Sort(PAMM_Object pObject, void* procCompar);
 		
 	#endif
 	
@@ -567,143 +256,66 @@
 	
 	
 	/*
-		Struct Memory Management Unit [结构体内存管理单元]
+		Struct Array Memory Management [结构体数组内存管理器]
 			成员编号规则（0为不存在的成员编号）：
 				┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬────┐
 				│01│02│03│04│05│06│07│08│09│10│11│12│ .. │
 				└──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴────┘
 	*/
 	
-	#ifdef MMU_USE_SMMU
+	#ifdef MMU_USE_SAMM
 		
-		// 结构体内存管理单元数据结构
+		// 申请步长
+		#ifndef SAMM_PREASSIGNSTEP
+			#define SAMM_PREASSIGNSTEP	256
+		#endif
+		
+		// 结构体数组内存管理器数据结构
 		typedef struct {
 			char* Memory;						// 管理器内存指针
 			unsigned int ItemLength;			// 成员占用内存长度
 			unsigned int Count;					// 管理器中存在多少成员
 			unsigned int AllocCount;			// 已经申请的结构数量
 			unsigned int AllocStep;				// 预分配内存步长
-		} SMMU_Struct, *SMMU_Object;
+		} SAMM_Struct, *SAMM_Object;
 		
 		// 创建结构化内存管理器
-		XXAPI SMMU_Object SMMU_Create(unsigned int iItemLength, unsigned int PreassignStep);
+		XXAPI SAMM_Object SAMM_Create(unsigned int iItemLength);
 		
 		// 销毁结构化内存管理器
-		XXAPI void SMMU_Destroy(SMMU_Object pObject);
+		XXAPI void SAMM_Destroy(SAMM_Object pObject);
 		
-		// 初始化内存管理器（对自维护结构体指针使用，和 SMMU_Create 功能类似）
-		XXAPI void SMMU_Init(SMMU_Object pObject, unsigned int iItemLength, unsigned int PreassignStep);
+		// 初始化内存管理器（对自维护结构体指针使用，和 SAMM_Create 功能类似）
+		XXAPI void SAMM_Init(SAMM_Object pObject, unsigned int iItemLength);
 		
-		// 释放内存管理器（对自维护结构体指针使用，和 SMMU_Destroy 功能类似）
-		XXAPI void SMMU_Unit(SMMU_Object pObject);
+		// 释放内存管理器（对自维护结构体指针使用，和 SAMM_Destroy 功能类似）
+		XXAPI void SAMM_Unit(SAMM_Object pObject);
 		
 		// 分配内存
-		XXAPI int SMMU_Malloc(SMMU_Object pObject, unsigned int iCount);
+		XXAPI int SAMM_Malloc(SAMM_Object pObject, unsigned int iCount);
 		
 		// 中间插入成员
-		XXAPI unsigned int SMMU_Insert(SMMU_Object pObject, unsigned int iPos, unsigned int iCount);
+		XXAPI unsigned int SAMM_Insert(SAMM_Object pObject, unsigned int iPos, unsigned int iCount);
 		
 		// 末尾添加成员
-		XXAPI unsigned int SMMU_Append(SMMU_Object pObject, unsigned int iCount);
+		XXAPI unsigned int SAMM_Append(SAMM_Object pObject, unsigned int iCount);
 		
 		// 交换成员
-		XXAPI int SMMU_Swap(SMMU_Object pObject, unsigned int iPosA, unsigned int iPosB);
+		XXAPI int SAMM_Swap(SAMM_Object pObject, unsigned int iPosA, unsigned int iPosB);
 		
 		// 删除成员
-		XXAPI int SMMU_Remove(SMMU_Object pObject, unsigned int iPos, unsigned int iCount);
+		XXAPI int SAMM_Remove(SAMM_Object pObject, unsigned int iPos, unsigned int iCount);
 		
 		// 获取成员指针
-		XXAPI void* SMMU_GetPtr(SMMU_Object pObject, unsigned int iPos);
-		XXAPI void* SMMU_GetPtr_Unsafe(SMMU_Object pObject, unsigned int iPos);
-		static inline void* SMMU_GetPtr_Inline(SMMU_Object pObject, unsigned int iPos)
+		XXAPI void* SAMM_GetPtr(SAMM_Object pObject, unsigned int iPos);
+		XXAPI void* SAMM_GetPtr_Unsafe(SAMM_Object pObject, unsigned int iPos);
+		static inline void* SAMM_GetPtr_Inline(SAMM_Object pObject, unsigned int iPos)
 		{
 			return &(pObject->Memory[(iPos - 1) * pObject->ItemLength]);
 		}
 		
 		// 成员排序
-		XXAPI int SMMU_Sort(SMMU_Object pObject, void* procCompar);
-		
-	#endif
-	
-	
-	
-	
-	
-	/*
-		Point Memory Management Unit [指针内存管理单元]
-			成员编号规则（0为不存在的成员编号）：
-				┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬────┐
-				│01│02│03│04│05│06│07│08│09│10│11│12│ .. │
-				└──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴────┘
-	*/
-	
-	#ifdef MMU_USE_PMMU
-		
-		// 申请步长
-		#define PMMU_PREASSIGNSTEP	256
-		
-		// 指针内存管理单元数据结构
-		typedef struct {
-			void** Memory;							// 管理器内存指针
-			unsigned int Count;						// 管理器中存在多少成员
-			unsigned int AllocCount;				// 已经申请的结构数量
-			unsigned int AllocStep;					// 预分配内存步长
-		} PMMU_Struct, *PMMU_Object;
-		
-		// 创建指针内存管理器
-		XXAPI PMMU_Object PMMU_Create();
-		
-		// 销毁指针内存管理器
-		XXAPI void PMMU_Destroy(PMMU_Object pObject);
-		
-		// 初始化内存管理器（对自维护结构体指针使用，和 PMMU_Create 功能类似）
-		XXAPI void PMMU_Init(PMMU_Object pObject);
-		
-		// 释放内存管理器（对自维护结构体指针使用，和 PMMU_Destroy 功能类似）
-		XXAPI void PMMU_Unit(PMMU_Object pObject);
-		
-		// 分配内存
-		XXAPI int PMMU_Malloc(PMMU_Object pObject, unsigned int iCount);
-		
-		// 中间插入成员(0为头部插入，pObject->Count为末尾插入)
-		XXAPI unsigned int PMMU_Insert(PMMU_Object pObject, unsigned int iPos, void* pVal);
-		
-		// 末尾添加成员
-		XXAPI unsigned int PMMU_Append(PMMU_Object pObject, void* pVal);
-		
-		// 添加成员，自动查找空隙（替换为 NULL 的值）
-		XXAPI unsigned int PMMU_Add(PMMU_Object pObject, void* pVal);
-		
-		// 交换成员
-		XXAPI int PMMU_Swap(PMMU_Object pObject, unsigned int iPosA, unsigned int iPosB);
-		
-		// 删除成员
-		XXAPI int PMMU_Remove(PMMU_Object pObject, unsigned int iPos, unsigned int iCount);
-		
-		// 获取成员指针
-		XXAPI void** PMMU_GetPtr(PMMU_Object pObject, unsigned int iPos);
-		XXAPI void* PMMU_GetVal(PMMU_Object pObject, unsigned int iPos);
-		XXAPI void** PMMU_GetPtr_Unsafe(PMMU_Object pObject, unsigned int iPos);
-		XXAPI void* PMMU_GetVal_Unsafe(PMMU_Object pObject, unsigned int iPos);
-		static inline void** PMMU_GetPtr_Inline(PMMU_Object pObject, unsigned int iPos)
-		{
-			return &(pObject->Memory[iPos - 1]);
-		}
-		static inline void* PMMU_GetVal_Inline(PMMU_Object pObject, unsigned int iPos)
-		{
-			return pObject->Memory[iPos - 1];
-		}
-		
-		// 设置成员指针
-		XXAPI int PMMU_SetVal(PMMU_Object pObject, unsigned int iPos, void* pVal);
-		XXAPI void PMMU_SetVal_Unsafe(PMMU_Object pObject, unsigned int iPos, void* pVal);
-		static inline void PMMU_SetVal_Inline(PMMU_Object pObject, unsigned int iPos, void* pVal)
-		{
-			pObject->Memory[iPos - 1] = pVal;
-		}
-		
-		// 成员排序
-		XXAPI int PMMU_Sort(PMMU_Object pObject, void* procCompar);
+		XXAPI int SAMM_Sort(SAMM_Object pObject, void* procCompar);
 		
 	#endif
 	
@@ -755,6 +367,57 @@
 		
 		// 末尾添加数据
 		XXAPI int MBMU_Append(MBMU_Object pObject, void* pData, unsigned int iSize, unsigned int bStrMode);
+		
+	#endif
+	
+	
+	
+	
+	
+	/*
+		Blocks Struct Memory Management [数据块结构内存管理器]
+			成员编号规则（从0开始，非特殊需求不建议使用）：
+				┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬────┐
+				│00│01│02│03│04│05│06│07│08│09│10│11│12│ .. │
+				└──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴────┘
+	*/
+	
+	#ifdef MMU_USE_BSMM
+		
+		// 数据块结构内存管理器数据结构
+		typedef struct {
+			unsigned int ItemLength;			// 成员占用内存长度
+			unsigned int Count;					// 管理器中存在多少成员
+			PAMM_Struct PageMMU;				// 内存页管理器
+			MemPtr_LLNode* LL_Free;				// 已释放的内存块链表
+		} BSMM_Struct, *BSMM_Object;
+		
+		// 创建数据块结构内存管理器
+		XXAPI BSMM_Object BSMM_Create(unsigned int iItemLength);
+		
+		// 销毁数据块结构内存管理器
+		XXAPI void BSMM_Destroy(BSMM_Object objBSMM);
+		
+		// 初始化数据块结构内存管理器（对自维护结构体指针使用，和 BSMM_Create 功能类似）
+		XXAPI void BSMM_Init(BSMM_Object objBSMM, unsigned int iItemLength);
+		
+		// 释放数据块结构内存管理器（对自维护结构体指针使用，和 BSMM_Destroy 功能类似）
+		XXAPI void BSMM_Unit(BSMM_Object objBSMM);
+		
+		// 申请结构体内存
+		XXAPI void* BSMM_Alloc(BSMM_Object objBSMM);
+		
+		// 释放结构体内存
+		XXAPI void BSMM_Free(BSMM_Object objBSMM, void* Ptr);
+		
+		// 获取成员指针（非特殊需求不建议使用）
+		static inline void* BSMM_GetPtr_Inline(BSMM_Object objBSMM, unsigned int iIdx)
+		{
+			unsigned int iBlock = iIdx >> 8;
+			unsigned int iPos = iIdx & 0xFF;
+			char* pBlock = PAMM_GetVal_Inline(&objBSMM->PageMMU, iBlock + 1);
+			return &pBlock[iPos * objBSMM->ItemLength];
+		}
 		
 	#endif
 	
@@ -909,15 +572,27 @@
 	
 	/*
 		Memory Management 256
-			内存管理器（固定大小的内存池，使用 MMU256 加速分配和释放）
+			内存管理器（固定成员大小的内存池，使用 MMU256 加速分配和释放）
 	*/
 	
 	#ifdef MMU_USE_MM256
 		
+		// 内存管理器链表结构
+		typedef struct MMU256_LLNode {
+			unsigned int Flag;
+			MMU256_Object objMMU;
+			struct MMU256_LLNode* Prev;
+			struct MMU256_LLNode* Next;
+		} MMU256_LLNode;
+		
 		// 256步进内存管理器数据结构
 		typedef struct {
 			unsigned int ItemLength;					// 成员占用内存长度
-			PMMU_Struct MMU;							// MMU 管理器
+			BSMM_Struct arrMMU;							// MMU 阵列
+			MMU256_LLNode* LL_Idle;						// 空闲的 MMU 内存管理单元链表 (优先分配内存的单元)
+			MMU256_LLNode* LL_Full;						// 满载的 MMU 内存管理单元链表 (不会从这些单元中分配内存)
+			MMU256_LLNode* LL_Null;						// 全空的 MMU 内存管理单元 (备用单元，最多只留一个)
+			MMU256_LLNode* LL_Free;						// 已释放的 MMU 内存管理单元链表 (申请新单元优先从这里找)
 			MMU_OnErrorProc OnError;					// 错误处理回调函数
 		} MM256_Struct, *MM256_Object;
 		
@@ -940,9 +615,9 @@
 		XXAPI void MM256_Free(MM256_Object objMM, void* ptr);
 		
 		// 将一块内存标记为使用中
-		XXAPI void MM256_GC_Mark(void* ptr);
+		#define MM256_GC_Mark	MM_GC_Mark
 		
-		// 进行一轮GC，将未标记为使用中的内存全部回收
+		// 进行一轮GC，将 标记 或 未标记 的内存全部回收
 		XXAPI void MM256_GC(MM256_Object objMM, int bFreeMark);
 		
 	#endif
@@ -953,15 +628,27 @@
 	
 	/*
 		Memory Management 64K
-			内存管理器（固定大小的内存池，使用 MMU64K 加速分配和释放）
+			内存管理器（固定成员大小的内存池，使用 MMU64K 加速分配和释放）
 	*/
 	
 	#ifdef MMU_USE_MM64K
 		
+		// 内存管理器链表结构
+		typedef struct MMU64K_LLNode {
+			unsigned int Flag;
+			MMU64K_Object objMMU;
+			struct MMU64K_LLNode* Prev;
+			struct MMU64K_LLNode* Next;
+		} MMU64K_LLNode;
+		
 		// 64K步进内存管理器数据结构
 		typedef struct {
 			unsigned int ItemLength;					// 成员占用内存长度
-			PMMU_Struct MMU;							// MMU 管理器
+			BSMM_Struct arrMMU;							// MMU 阵列
+			MMU64K_LLNode* LL_Idle;						// 空闲的 MMU 内存管理单元链表 (优先分配内存的单元)
+			MMU64K_LLNode* LL_Full;						// 满载的 MMU 内存管理单元链表 (不会从这些单元中分配内存)
+			MMU64K_LLNode* LL_Null;						// 全空的 MMU 内存管理单元 (备用单元，最多只留一个)
+			MMU64K_LLNode* LL_Free;						// 已释放的 MMU 内存管理单元链表 (申请新单元优先从这里找)
 			MMU_OnErrorProc OnError;					// 错误处理回调函数
 		} MM64K_Struct, *MM64K_Object;
 		
@@ -984,9 +671,9 @@
 		XXAPI void MM64K_Free(MM64K_Object objMM, void* ptr);
 		
 		// 将一块内存标记为使用中
-		XXAPI void MM64K_GC_Mark(void* ptr);
+		#define MM64K_GC_Mark	MM_GC_Mark
 		
-		// 进行一轮GC，将未标记为使用中的内存全部回收
+		// 进行一轮GC，将 标记 或 未标记 的内存全部回收
 		XXAPI void MM64K_GC(MM64K_Object objMM, int bFreeMark);
 		
 	#endif
@@ -1097,7 +784,7 @@
 		typedef struct {
 			unsigned int ItemLength;					// 栈成员占用内存长度
 			unsigned int Count;							// 栈中存在多少成员（栈顶位置）
-			PMMU_Struct MMU;							// MMU 管理器
+			PAMM_Struct MMU;							// MMU 管理器
 			MMU_OnErrorProc OnError;					// 错误处理回调函数
 		} SDSTK_Struct, *SDSTK_Object;
 		
@@ -1146,7 +833,7 @@
 		// 指针动态栈数据结构
 		typedef struct {
 			unsigned int Count;							// 栈中存在多少成员（栈顶位置）
-			PMMU_Struct MMU;							// MMU 管理器
+			PAMM_Struct MMU;							// MMU 管理器
 			MMU_OnErrorProc OnError;					// 错误处理回调函数
 		} PDSTK_Struct, *PDSTK_Object;
 		
@@ -1384,6 +1071,67 @@
 		
 		// 获取根节点数据段
 		#define RBTree_GetRootData(obj) RBTree_GetNodeData(obj->RootNode)
+		
+	#endif
+	
+	
+	
+	
+	
+	/*
+		Memory Pool 256
+			内存管理器（可变成员大小的内存池，使用 MM256 加速分配和释放）
+	*/
+	
+	#ifdef MMU_USE_MP256
+		
+		// 256步进内存池数据结构
+		typedef struct {
+			AVLTree_Struct FSBMM;			// fixed-size-blocks 固定大小区块MM
+			PAMM_Struct BIGMM;				// 大内存数组
+		} MP256_Struct, *MP256_Object;
+		
+		// 创建内存池
+		XXAPI MP256_Object MP256_Create(int bCustom);
+		
+		// 销毁内存池
+		XXAPI void MP256_Destroy(MP256_Object objMP);
+		
+		// 初始化内存池（对自维护结构体指针使用，和 MP256_Create 功能类似）
+		XXAPI void MP256_Init(MP256_Object objMP, int bCustom);
+		
+		// 释放内存池（对自维护结构体指针使用，和 MP256_Destroy 功能类似）
+		XXAPI void MP256_Unit(MP256_Object objMP);
+		
+		// 添加一种典型大小的管理器
+		XXAPI int MP256_AddFSB(MP256_Object objMP, unsigned int iSize);
+		
+		// 从内存池中申请一块内存
+		XXAPI void* MP256_Alloc(MP256_Object objMP);
+		
+		// 将内存池申请的内存释放掉
+		XXAPI void MP256_Free(MP256_Object objMP, void* ptr);
+		
+		// 将一块内存标记为使用中
+		#define MP256_GC_Mark	MM_GC_Mark
+		
+		// 进行一轮GC，将 标记 或 未标记 的内存全部回收
+		XXAPI void MP256_GC(MP256_Object objMP, int bFreeMark);
+		
+	#endif
+	
+	
+	
+	
+	
+	/*
+		Memory Pool 64K
+			内存管理器（可变成员大小的内存池，使用 MM64K 加速分配和释放）
+	*/
+	
+	#ifdef MMU_USE_MP64K
+		
+		
 		
 	#endif
 	
