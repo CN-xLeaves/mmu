@@ -51,21 +51,6 @@
 	
 	
 	// 模块依赖处理
-	#ifdef MMU_USE_SDSTK
-		#define MMU_USE_PAMM
-	#endif
-	#ifdef MMU_USE_PDSTK
-		#define MMU_USE_PAMM
-	#endif
-	#ifdef MMU_USE_LLIST
-		#define MMU_USE_MM256
-	#endif
-	#ifdef MMU_USE_AVLTREE
-		#define MMU_USE_MM256
-	#endif
-	#ifdef MMU_USE_RBTREE
-		#define MMU_USE_MM256
-	#endif
 	#ifdef MMU_USE_AVLHT32
 		#define MMU_USE_AVLTREE
 		#define MMU_USE_HASH32
@@ -82,12 +67,38 @@
 		#define MMU_USE_RBTREE
 		#define MMU_USE_HASH64
 	#endif
+	#ifdef MMU_USE_LLIST
+		#define MMU_USE_MM256
+	#endif
+	#ifdef MMU_USE_AVLTREE
+		#define MMU_USE_MM256
+	#endif
+	#ifdef MMU_USE_RBTREE
+		#define MMU_USE_MM256
+	#endif
+	#ifdef MMU_USE_MP256
+		#define MMU_USE_MMU256
+		#define MMU_USE_BSMM
+	#endif
+	#ifdef MMU_USE_MP64K
+		#define MMU_USE_MMU64K
+		#define MMU_USE_BSMM
+	#endif
 	#ifdef MMU_USE_MM256
 		#define MMU_USE_MMU256
-		#define MMU_USE_PAMM
+		#define MMU_USE_BSMM
 	#endif
 	#ifdef MMU_USE_MM64K
 		#define MMU_USE_MMU64K
+		#define MMU_USE_BSMM
+	#endif
+	#ifdef MMU_USE_SDSTK
+		#define MMU_USE_PAMM
+	#endif
+	#ifdef MMU_USE_PDSTK
+		#define MMU_USE_PAMM
+	#endif
+	#ifdef MMU_USE_BSMM
 		#define MMU_USE_PAMM
 	#endif
 	
@@ -113,8 +124,8 @@
 	#define STK_ERROR_ALLOC				1
 	#define MM_ERROR_CREATEMMU			2
 	#define MM_ERROR_ADDMMU				3
-	#define MM_ERROR_GETMMU				4
-	#define MM_ERROR_NULLMMU			5
+	#define MM_ERROR_NULLMMU			4
+	#define MM_ERROR_FINDFSB			5
 	
 	// 报错回调函数定义
 	typedef void (*MMU_OnErrorProc)(void* objMM, int ErrorID);
@@ -128,8 +139,24 @@
 	// GC回收标记位
 	#define MMU_FLAG_GC					0x40000000
 	
+	// 非内存管理器管理的内存
+	#define MMU_FLAG_EXT				0xBFFFFFFF
+	
 	// MM256 or MM64K GC标记
 	#define MM_GC_Mark(p) ((MMU_ValuePtr)((void*)p - sizeof(MMU_Value)))->ItemFlag |= MMU_FLAG_GC
+		
+	// MP256 or MP64K 大内存结构体前置结构
+	typedef struct {
+		unsigned int Index;							// BigMM 的块索引
+		unsigned int Flag;							// 符合 MM256 标准的 Flag
+	} MP_MemHead;
+	
+	// MP256 or MP64K 大内存信息链表结构体（实际返回的内存地址相当于 Ptr + sizeof(MP_MemHead)）
+	typedef struct MP_BigInfoLL {
+		unsigned int Size;							// 申请内存的大小，可有可无（可开发辅助功能，如泄漏检测）
+		void* Ptr;									// 指针地址，使用 mmu_malloc 返回的地址
+		struct MP_BigInfoLL* Next;				// 下一个链表节点（用于释放链表）
+	} MP_BigInfoLL;
 	
 	// 内存分配器定义
 	#define mmu_realloc	realloc
@@ -491,6 +518,9 @@
 		}
 		XXAPI void MMU256_Free(MMU256_Object objUnit, void* obj);
 		
+		// 进行一轮GC，将 标记 或 未标记 的内存全部回收
+		void MMU256_GC(MMU256_Object objUnit, int bFreeMark);
+		
 	#endif
 	
 	
@@ -563,6 +593,9 @@
 			MMU64K_FreeIdx_Inline(objUnit, idx);
 		}
 		XXAPI void MMU64K_Free(MMU64K_Object objUnit, void* obj);
+		
+		// 进行一轮GC，将 标记 或 未标记 的内存全部回收
+		void MMU64K_GC(MMU64K_Object objMMU, int bFreeMark);
 		
 	#endif
 	
@@ -1085,10 +1118,26 @@
 	
 	#ifdef MMU_USE_MP256
 		
+		// 单个长度区间的内存管理器结构
+		typedef struct FSB256_Item {
+			unsigned int MinLength;						// 支持最小的内存长度
+			unsigned int MaxLength;						// 支持最大的内存长度
+			MMU256_LLNode* LL_Idle;						// 空闲的 MMU 内存管理单元链表 (优先分配内存的单元)
+			MMU256_LLNode* LL_Full;						// 满载的 MMU 内存管理单元链表 (不会从这些单元中分配内存)
+			MMU256_LLNode* LL_Null;						// 全空的 MMU 内存管理单元 (备用单元，最多只留一个)
+			MMU256_LLNode* LL_Free;						// 已释放的 MMU 内存管理单元链表 (申请新单元优先从这里找)
+			struct FSB256_Item* left;						// 左子树
+			struct FSB256_Item* right;						// 右子树
+		} FSB256_Item;
+		
 		// 256步进内存池数据结构
 		typedef struct {
-			AVLTree_Struct FSBMM;			// fixed-size-blocks 固定大小区块MM
-			PAMM_Struct BIGMM;				// 大内存数组
+			FSB256_Item* FSB_Memory;					// fixed-size-blocks 内存（MP256_Create参数为 1 或 2 时自动创建，否则需要手动创建，不为空会调用 mmu_free 释放）
+			FSB256_Item* FSB_RootNode;					// fixed-size-blocks 二叉树（固定大小区块内存管理器阵列）
+			BSMM_Struct arrMMU;							// MMU 阵列
+			BSMM_Struct BigMM;							// 大内存数组
+			MP_BigInfoLL* LL_BigFree;					// 大内存已释放的内存块链表
+			MMU_OnErrorProc OnError;					// 错误处理回调函数
 		} MP256_Struct, *MP256_Object;
 		
 		// 创建内存池
@@ -1103,11 +1152,8 @@
 		// 释放内存池（对自维护结构体指针使用，和 MP256_Destroy 功能类似）
 		XXAPI void MP256_Unit(MP256_Object objMP);
 		
-		// 添加一种典型大小的管理器
-		XXAPI int MP256_AddFSB(MP256_Object objMP, unsigned int iSize);
-		
 		// 从内存池中申请一块内存
-		XXAPI void* MP256_Alloc(MP256_Object objMP);
+		XXAPI void* MP256_Alloc(MP256_Object objMP, unsigned int iSize);
 		
 		// 将内存池申请的内存释放掉
 		XXAPI void MP256_Free(MP256_Object objMP, void* ptr);
@@ -1131,7 +1177,51 @@
 	
 	#ifdef MMU_USE_MP64K
 		
+		// 单个长度区间的内存管理器结构
+		typedef struct FSB64K_Item {
+			unsigned int MinLength;						// 支持最小的内存长度
+			unsigned int MaxLength;						// 支持最大的内存长度
+			MMU64K_LLNode* LL_Idle;						// 空闲的 MMU 内存管理单元链表 (优先分配内存的单元)
+			MMU64K_LLNode* LL_Full;						// 满载的 MMU 内存管理单元链表 (不会从这些单元中分配内存)
+			MMU64K_LLNode* LL_Null;						// 全空的 MMU 内存管理单元 (备用单元，最多只留一个)
+			MMU64K_LLNode* LL_Free;						// 已释放的 MMU 内存管理单元链表 (申请新单元优先从这里找)
+			struct FSB64K_Item* left;						// 左子树
+			struct FSB64K_Item* right;						// 右子树
+		} FSB64K_Item;
 		
+		// 64K步进内存池数据结构
+		typedef struct {
+			FSB64K_Item* FSB_Memory;					// fixed-size-blocks 内存（MP64K_Create参数为 1 或 2 时自动创建，否则需要手动创建，不为空会调用 mmu_free 释放）
+			FSB64K_Item* FSB_RootNode;					// fixed-size-blocks 二叉树（固定大小区块内存管理器阵列）
+			BSMM_Struct arrMMU;							// MMU 阵列
+			BSMM_Struct BigMM;							// 大内存数组
+			MP_BigInfoLL* LL_BigFree;					// 大内存已释放的内存块链表
+			MMU_OnErrorProc OnError;					// 错误处理回调函数
+		} MP64K_Struct, *MP64K_Object;
+		
+		// 创建内存池
+		XXAPI MP64K_Object MP64K_Create(int bCustom);
+		
+		// 销毁内存池
+		XXAPI void MP64K_Destroy(MP64K_Object objMP);
+		
+		// 初始化内存池（对自维护结构体指针使用，和 MP64K_Create 功能类似）
+		XXAPI void MP64K_Init(MP64K_Object objMP, int bCustom);
+		
+		// 释放内存池（对自维护结构体指针使用，和 MP64K_Destroy 功能类似）
+		XXAPI void MP64K_Unit(MP64K_Object objMP);
+		
+		// 从内存池中申请一块内存
+		XXAPI void* MP64K_Alloc(MP64K_Object objMP, unsigned int iSize);
+		
+		// 将内存池申请的内存释放掉
+		XXAPI void MP64K_Free(MP64K_Object objMP, void* ptr);
+		
+		// 将一块内存标记为使用中
+		#define MP64K_GC_Mark	MM_GC_Mark
+		
+		// 进行一轮GC，将 标记 或 未标记 的内存全部回收
+		XXAPI void MP64K_GC(MP64K_Object objMP, int bFreeMark);
 		
 	#endif
 	

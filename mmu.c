@@ -716,23 +716,15 @@ XXAPI void MMU_Thread_Unit()
 	XXAPI MMU256_Object MMU256_Create(unsigned int iItemLength)
 	{
 		iItemLength += sizeof(MMU_Value);
-		#ifdef MMU_USE_RPMALLOC
-			MMU256_Object objUnit = mmu_malloc(sizeof(MMU256_Struct) + (256 * iItemLength));
-		#else
-			MMU256_Object objUnit = mmu_malloc(sizeof(MMU256_Struct) + (256 * iItemLength) + 3);
-		#endif
+		MMU256_Object objUnit = mmu_malloc(sizeof(MMU256_Struct) + (256 * iItemLength) + 3);
 		if ( objUnit ) {
 			// 处理内存对齐
-			#ifdef MMU_USE_RPMALLOC
+			if ( (intptr_t)objUnit & 3 ) {
+				char* pTemp = (char*)&objUnit[1];
+				objUnit->Memory = &pTemp[(intptr_t)objUnit & 3];
+			} else {
 				objUnit->Memory = (char*)&objUnit[1];
-			#else
-				if ( (intptr_t)objUnit & 3 ) {
-					char* pTemp = (char*)&objUnit[1];
-					objUnit->Memory = &pTemp[(intptr_t)objUnit & 3];
-				} else {
-					objUnit->Memory = (char*)&objUnit[1];
-				}
-			#endif
+			}
 			objUnit->ItemLength = iItemLength;
 			objUnit->Count = 0;
 			objUnit->FreeCount = 0;
@@ -762,6 +754,38 @@ XXAPI void MMU_Thread_Unit()
 		MMU256_Free_Inline(objUnit, obj);
 	}
 	
+	// 进行一轮GC，将 标记 或 未标记 的内存全部回收
+	void MMU256_GC(MMU256_Object objUnit, int bFreeMark)
+	{
+		if ( objUnit && (objUnit->Count > 0) ) {
+			if ( bFreeMark ) {
+				// 被标记的内存将被回收
+				for ( int idx = 0; idx < 256; idx++ ) {
+					MMU_ValuePtr v = (MMU_ValuePtr)&(objUnit->Memory[objUnit->ItemLength * idx]);
+					if ( v->ItemFlag & MMU_FLAG_USE ) {
+						if ( v->ItemFlag & MMU_FLAG_GC ) {
+							MMU256_FreeIdx_Inline(objUnit, idx);
+							v->ItemFlag = 0;
+						}
+					}
+				}
+			} else {
+				// 未被标记的内存将被回收
+				for ( int idx = 0; idx < 256; idx++ ) {
+					MMU_ValuePtr v = (MMU_ValuePtr)&(objUnit->Memory[objUnit->ItemLength * idx]);
+					if ( v->ItemFlag & MMU_FLAG_USE ) {
+						if ( v->ItemFlag & MMU_FLAG_GC ) {
+							v->ItemFlag &= ~MMU_FLAG_GC;
+						} else {
+							MMU256_FreeIdx_Inline(objUnit, idx);
+							v->ItemFlag = 0;
+						}
+					}
+				}
+			}
+		}
+	}
+	
 #endif
 
 
@@ -782,23 +806,15 @@ XXAPI void MMU_Thread_Unit()
 	XXAPI MMU64K_Object MMU64K_Create(unsigned int iItemLength)
 	{
 		iItemLength += sizeof(MMU_Value);
-		#ifdef MMU_USE_RPMALLOC
-			MMU64K_Object objUnit = mmu_malloc(sizeof(MMU64K_Struct) + (65536 * iItemLength));
-		#else
-			MMU64K_Object objUnit = mmu_malloc(sizeof(MMU64K_Struct) + (65536 * iItemLength) + 3);
-		#endif
+		MMU64K_Object objUnit = mmu_malloc(sizeof(MMU64K_Struct) + (65536 * iItemLength) + 3);
 		if ( objUnit ) {
 			// 处理内存对齐
-			#ifdef MMU_USE_RPMALLOC
+			if ( (intptr_t)objUnit & 3 ) {
+				char* pTemp = (char*)&objUnit[1];
+				objUnit->Memory = &pTemp[(intptr_t)objUnit & 3];
+			} else {
 				objUnit->Memory = (char*)&objUnit[1];
-			#else
-				if ( (intptr_t)objUnit & 3 ) {
-					char* pTemp = (char*)&objUnit[1];
-					objUnit->Memory = &pTemp[(intptr_t)objUnit & 3];
-				} else {
-					objUnit->Memory = (char*)&objUnit[1];
-				}
-			#endif
+			}
 			objUnit->ItemLength = iItemLength;
 			objUnit->Count = 0;
 			objUnit->FreeCount = 0;
@@ -826,6 +842,38 @@ XXAPI void MMU_Thread_Unit()
 	XXAPI void MMU64K_Free(MMU64K_Object objUnit, void* ptr)
 	{
 		MMU64K_Free_Inline(objUnit, ptr);
+	}
+	
+	// 进行一轮GC，将 标记 或 未标记 的内存全部回收
+	void MMU64K_GC(MMU64K_Object objMMU, int bFreeMark)
+	{
+		if ( objMMU && (objMMU->Count > 0) ) {
+			if ( bFreeMark ) {
+				// 被标记的内存将被回收
+				for ( int idx = 0; idx < 65536; idx++ ) {
+					MMU_ValuePtr v = (MMU_ValuePtr)&(objMMU->Memory[objMMU->ItemLength * idx]);
+					if ( v->ItemFlag & MMU_FLAG_USE ) {
+						if ( v->ItemFlag & MMU_FLAG_GC ) {
+							MMU64K_FreeIdx_Inline(objMMU, idx);
+							v->ItemFlag = 0;
+						}
+					}
+				}
+			} else {
+				// 未被标记的内存将被回收
+				for ( int idx = 0; idx < 65536; idx++ ) {
+					MMU_ValuePtr v = (MMU_ValuePtr)&(objMMU->Memory[objMMU->ItemLength * idx]);
+					if ( v->ItemFlag & MMU_FLAG_USE ) {
+						if ( v->ItemFlag & MMU_FLAG_GC ) {
+							v->ItemFlag &= ~MMU_FLAG_GC;
+						} else {
+							MMU64K_FreeIdx_Inline(objMMU, idx);
+							v->ItemFlag = 0;
+						}
+					}
+				}
+			}
+		}
 	}
 	
 #endif
@@ -918,10 +966,7 @@ XXAPI void MMU_Thread_Unit()
 				objMM->LL_Free = pNode->Next;
 				// 添加到 LL_Idle
 				pNode->Prev = NULL;
-				pNode->Next = objMM->LL_Idle;
-				if ( objMM->LL_Idle ) {
-					objMM->LL_Idle->Prev = pNode;
-				}
+				pNode->Next = NULL;
 				objMM->LL_Idle = pNode;
 			} else {
 				// 创建新的内存管理单元，创建失败就报错处理
@@ -1047,73 +1092,39 @@ XXAPI void MMU_Thread_Unit()
 	XXAPI void MM256_Free(MM256_Object objMM, void* ptr)
 	{
 		MMU_ValuePtr v = ptr - sizeof(MMU_Value);
-		int iMMU = (v->ItemFlag & MMU_FLAG_MASK) >> 8;
-		unsigned char idx = v->ItemFlag & 0xFF;
-		// 获取对应的内存管理器单元链表结构
-		MMU256_LLNode* pNode = BSMM_GetPtr_Inline(&objMM->arrMMU, iMMU);
-		if ( objMM->OnError ) {
-			if ( pNode == NULL ) {
-				objMM->OnError(objMM, MM_ERROR_GETMMU);
-				return;
-			}
-			if ( pNode->objMMU == NULL ) {
+		if ( v->ItemFlag & MMU_FLAG_USE ) {
+			int iMMU = (v->ItemFlag & MMU_FLAG_MASK) >> 8;
+			unsigned char idx = v->ItemFlag & 0xFF;
+			// 获取对应的内存管理器单元链表结构
+			MMU256_LLNode* pNode = BSMM_GetPtr_Inline(&objMM->arrMMU, iMMU);
+			if ( (pNode->objMMU == NULL) && objMM->OnError ) {
 				objMM->OnError(objMM, MM_ERROR_NULLMMU);
 				return;
 			}
+			// 调用对应 MMU 的释放函数
+			MMU256_FreeIdx_Inline(pNode->objMMU, idx);
+			v->ItemFlag = 0;
+			// 如果是一个满载的内存管理器单元，将它放入空闲单元列表
+			if ( pNode->objMMU->Count >= 255 ) {
+				MM256_LLNode_IdleCheck(objMM, pNode);
+			}
+			// 如果这个内存管理单元已经清空，将他释放或变为备用单元
+			MM256_LLNode_ClearCheck(objMM, pNode, 0);
 		}
-		// 调用对应 MMU 的释放函数
-		MMU256_FreeIdx_Inline(pNode->objMMU, idx);
-		v->ItemFlag = 0;
-		// 如果是一个满载的内存管理器单元，将它放入空闲单元列表
-		if ( pNode->objMMU->Count >= 255 ) {
-			MM256_LLNode_IdleCheck(objMM, pNode);
-		}
-		// 如果这个内存管理单元已经清空，将他释放或变为备用单元
-		MM256_LLNode_ClearCheck(objMM, pNode, 0);
 	}
 	
 	// 进行一轮GC，将未标记为使用中的内存全部回收
-	static inline void MM256_MMU_GC(MMU256_Object objMMU, int bFreeMark)
-	{
-		if ( objMMU && (objMMU->Count > 0) ) {
-			if ( bFreeMark ) {
-				// 被标记的内存将被回收
-				for ( int idx = 0; idx < 256; idx++ ) {
-					MMU_ValuePtr v = (MMU_ValuePtr)&(objMMU->Memory[objMMU->ItemLength * idx]);
-					if ( v->ItemFlag & MMU_FLAG_USE ) {
-						if ( v->ItemFlag & MMU_FLAG_GC ) {
-							MMU256_FreeIdx_Inline(objMMU, idx);
-							v->ItemFlag = 0;
-						}
-					}
-				}
-			} else {
-				// 未被标记的内存将被回收
-				for ( int idx = 0; idx < 256; idx++ ) {
-					MMU_ValuePtr v = (MMU_ValuePtr)&(objMMU->Memory[objMMU->ItemLength * idx]);
-					if ( v->ItemFlag & MMU_FLAG_USE ) {
-						if ( v->ItemFlag & MMU_FLAG_GC ) {
-							v->ItemFlag &= ~MMU_FLAG_GC;
-						} else {
-							MMU256_FreeIdx_Inline(objMMU, idx);
-							v->ItemFlag = 0;
-						}
-					}
-				}
-			}
-		}
-	}
 	XXAPI void MM256_GC(MM256_Object objMM, int bFreeMark)
 	{
 		// 遍历所有 空闲的 和 满载的 内存管理单元，进行标记回收
 		MMU256_LLNode* pNode = objMM->LL_Idle;
 		while ( pNode ) {
-			MM256_MMU_GC(pNode->objMMU, bFreeMark);
+			MMU256_GC(pNode->objMMU, bFreeMark);
 			pNode = pNode->Next;
 		}
 		pNode = objMM->LL_Full;
 		while ( pNode ) {
-			MM256_MMU_GC(pNode->objMMU, bFreeMark);
+			MMU256_GC(pNode->objMMU, bFreeMark);
 			pNode = pNode->Next;
 		}
 		// 再次遍历所有 空闲的 和 满载的 内存管理单元，将他们归类到正确的分组
@@ -1225,10 +1236,7 @@ XXAPI void MMU_Thread_Unit()
 				objMM->LL_Free = pNode->Next;
 				// 添加到 LL_Idle
 				pNode->Prev = NULL;
-				pNode->Next = objMM->LL_Idle;
-				if ( objMM->LL_Idle ) {
-					objMM->LL_Idle->Prev = pNode;
-				}
+				pNode->Next = NULL;
 				objMM->LL_Idle = pNode;
 			} else {
 				// 创建新的内存管理单元，创建失败就报错处理
@@ -1354,73 +1362,39 @@ XXAPI void MMU_Thread_Unit()
 	XXAPI void MM64K_Free(MM64K_Object objMM, void* ptr)
 	{
 		MMU_ValuePtr v = ptr - sizeof(MMU_Value);
-		int iMMU = (v->ItemFlag & MMU_FLAG_MASK) >> 16;
-		unsigned char idx = v->ItemFlag & 0xFFFF;
-		// 获取对应的内存管理器单元链表结构
-		MMU64K_LLNode* pNode = BSMM_GetPtr_Inline(&objMM->arrMMU, iMMU);
-		if ( objMM->OnError ) {
-			if ( pNode == NULL ) {
-				objMM->OnError(objMM, MM_ERROR_GETMMU);
-				return;
-			}
-			if ( pNode->objMMU == NULL ) {
+		if ( v->ItemFlag & MMU_FLAG_USE ) {
+			int iMMU = (v->ItemFlag & MMU_FLAG_MASK) >> 16;
+			unsigned char idx = v->ItemFlag & 0xFFFF;
+			// 获取对应的内存管理器单元链表结构
+			MMU64K_LLNode* pNode = BSMM_GetPtr_Inline(&objMM->arrMMU, iMMU);
+			if ( (pNode->objMMU == NULL) && objMM->OnError ) {
 				objMM->OnError(objMM, MM_ERROR_NULLMMU);
 				return;
 			}
+			// 调用对应 MMU 的释放函数
+			MMU64K_FreeIdx_Inline(pNode->objMMU, idx);
+			v->ItemFlag = 0;
+			// 如果是一个满载的内存管理器单元，将它放入空闲单元列表
+			if ( pNode->objMMU->Count >= 65535 ) {
+				MM64K_LLNode_IdleCheck(objMM, pNode);
+			}
+			// 如果这个内存管理单元已经清空，将他释放或变为备用单元
+			MM64K_LLNode_ClearCheck(objMM, pNode, 0);
 		}
-		// 调用对应 MMU 的释放函数
-		MMU64K_FreeIdx_Inline(pNode->objMMU, idx);
-		v->ItemFlag = 0;
-		// 如果是一个满载的内存管理器单元，将它放入空闲单元列表
-		if ( pNode->objMMU->Count >= 65535 ) {
-			MM64K_LLNode_IdleCheck(objMM, pNode);
-		}
-		// 如果这个内存管理单元已经清空，将他释放或变为备用单元
-		MM64K_LLNode_ClearCheck(objMM, pNode, 0);
 	}
 	
 	// 进行一轮GC，将未标记为使用中的内存全部回收
-	static inline void MM64K_MMU_GC(MMU64K_Object objMMU, int bFreeMark)
-	{
-		if ( objMMU && (objMMU->Count > 0) ) {
-			if ( bFreeMark ) {
-				// 被标记的内存将被回收
-				for ( int idx = 0; idx < 65536; idx++ ) {
-					MMU_ValuePtr v = (MMU_ValuePtr)&(objMMU->Memory[objMMU->ItemLength * idx]);
-					if ( v->ItemFlag & MMU_FLAG_USE ) {
-						if ( v->ItemFlag & MMU_FLAG_GC ) {
-							MMU64K_FreeIdx_Inline(objMMU, idx);
-							v->ItemFlag = 0;
-						}
-					}
-				}
-			} else {
-				// 未被标记的内存将被回收
-				for ( int idx = 0; idx < 65536; idx++ ) {
-					MMU_ValuePtr v = (MMU_ValuePtr)&(objMMU->Memory[objMMU->ItemLength * idx]);
-					if ( v->ItemFlag & MMU_FLAG_USE ) {
-						if ( v->ItemFlag & MMU_FLAG_GC ) {
-							v->ItemFlag &= ~MMU_FLAG_GC;
-						} else {
-							MMU64K_FreeIdx_Inline(objMMU, idx);
-							v->ItemFlag = 0;
-						}
-					}
-				}
-			}
-		}
-	}
 	XXAPI void MM64K_GC(MM64K_Object objMM, int bFreeMark)
 	{
 		// 遍历所有 空闲的 和 满载的 内存管理单元，进行标记回收
 		MMU64K_LLNode* pNode = objMM->LL_Idle;
 		while ( pNode ) {
-			MM64K_MMU_GC(pNode->objMMU, bFreeMark);
+			MMU64K_GC(pNode->objMMU, bFreeMark);
 			pNode = pNode->Next;
 		}
 		pNode = objMM->LL_Full;
 		while ( pNode ) {
-			MM64K_MMU_GC(pNode->objMMU, bFreeMark);
+			MMU64K_GC(pNode->objMMU, bFreeMark);
 			pNode = pNode->Next;
 		}
 		// 再次遍历所有 空闲的 和 满载的 内存管理单元，将他们归类到正确的分组
@@ -2889,81 +2863,931 @@ XXAPI void MMU_Thread_Unit()
 	}
 	
 	// 初始化内存池（对自维护结构体指针使用，和 MP256_Create 功能类似）
-	int MP256_MM_CompProc(MM256_Object pMM1, unsigned int iSize)
+	void MP256_SetFSB(FSB256_Item* FSB, int idx, unsigned int iSizeMin, unsigned int iSizeMax, FSB256_Item* left, FSB256_Item* right)
 	{
-		return pMM1->ItemLength - pMM2->ItemLength;
+		FSB[idx].MinLength = iSizeMin;
+		FSB[idx].MaxLength = iSizeMax;
+		FSB[idx].LL_Idle = NULL;
+		FSB[idx].LL_Full = NULL;
+		FSB[idx].LL_Null = NULL;
+		FSB[idx].LL_Free = NULL;
+		FSB[idx].left = left;
+		FSB[idx].right = right;
 	}
 	XXAPI void MP256_Init(MP256_Object objMP, int bCustom)
 	{
-		AVLTree_Init(&objMP->FSBMM, sizeof(MM256_Struct), (void*)MP256_MM_CompProc);
-		PAMM_Init(&objMP->BIGMM);
-		if ( bCustom == 0 ) {
-			// 添加默认的区块区间（这里按照平衡树的顺序添加，避免树旋转平衡，15个区间可以确保树高在4层）
-			/* 二叉树视图：
-											○
-											128
-							○								○
-							32								384
-					○				○				○				○
-					16				64				192				768
-				○		○		○		○		○		○		○		○
-				8		24		48		96		160		256		512		1024
-			*/
-			MP256_AddFSB(objMP, 128);
-			MP256_AddFSB(objMP, 32);
-			MP256_AddFSB(objMP, 384);
-			MP256_AddFSB(objMP, 16);
-			MP256_AddFSB(objMP, 64);
-			MP256_AddFSB(objMP, 192);
-			MP256_AddFSB(objMP, 768);
-			MP256_AddFSB(objMP, 8);
-			MP256_AddFSB(objMP, 24);
-			MP256_AddFSB(objMP, 48);
-			MP256_AddFSB(objMP, 96);
-			MP256_AddFSB(objMP, 160);
-			MP256_AddFSB(objMP, 256);
-			MP256_AddFSB(objMP, 512);
-			MP256_AddFSB(objMP, 1024);
+		BSMM_Init(&objMP->arrMMU, sizeof(MMU256_LLNode));
+		BSMM_Init(&objMP->BigMM, sizeof(MP_BigInfoLL));
+		objMP->LL_BigFree = NULL;
+		objMP->OnError = NULL;
+		if ( bCustom == 1 ) {
+			// 添加默认的区块区间 (4层树，针对小内存的方案)
+			//
+			// 二叉树视图 (根据建树顺序插入避免旋转产生额外开销)：
+			//								○
+			//								160
+			//				○								○
+			//				64								320
+			//		○				○				○				○
+			//		32				96				224				448
+			//	○		○		○		○		○		○		○		○
+			//	16		48		80		128		192		256		384		512
+			//
+			objMP->FSB_Memory = mmu_malloc(sizeof(FSB256_Item) * 15);
+			MP256_SetFSB(objMP->FSB_Memory, 0,	1,		16, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 1,	17,		32, &objMP->FSB_Memory[0], &objMP->FSB_Memory[2]);
+			MP256_SetFSB(objMP->FSB_Memory, 2,	33,		48, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 3,	49,		64, &objMP->FSB_Memory[1], &objMP->FSB_Memory[5]);
+			MP256_SetFSB(objMP->FSB_Memory, 4,	65,		80, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 5,	81,		96, &objMP->FSB_Memory[4], &objMP->FSB_Memory[6]);
+			MP256_SetFSB(objMP->FSB_Memory, 6,	97,		128, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 7,	129,	160, &objMP->FSB_Memory[3], &objMP->FSB_Memory[11]);
+			MP256_SetFSB(objMP->FSB_Memory, 8,	161,	192, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 9,	193,	224, &objMP->FSB_Memory[8], &objMP->FSB_Memory[10]);
+			MP256_SetFSB(objMP->FSB_Memory, 10,	225,	256, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 11,	257,	320, &objMP->FSB_Memory[9], &objMP->FSB_Memory[13]);
+			MP256_SetFSB(objMP->FSB_Memory, 12,	321,	384, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 13,	385,	448, &objMP->FSB_Memory[12], &objMP->FSB_Memory[14]);
+			MP256_SetFSB(objMP->FSB_Memory, 14,	449,	512, NULL, NULL);
+			objMP->FSB_RootNode = &objMP->FSB_Memory[7];
+		} else if ( bCustom == 2 ) {
+			// 添加默认的区块区间 (5层树，针对大内存的方案)
+			//
+			// 二叉树视图 (根据建树顺序插入避免旋转产生额外开销)：
+			//																○
+			//																640
+			//								○																○
+			//								160																2304
+			//				○								○								○								○
+			//				64								320								1280							3328
+			//		○				○				○				○				○				○				○				○
+			//		32				96				224				448				896				1792			2816			3840
+			//	○		○		○		○		○		○		○		○		○		○		○		○		○		○		○		○
+			//	16		48		80		128		192		256		384		512		768		1024	1536	2048	2560	3072	3584	4096
+			//
+			objMP->FSB_Memory = mmu_malloc(sizeof(FSB256_Item) * 31);
+			MP256_SetFSB(objMP->FSB_Memory, 0,	1,		16, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 1,	17,		32, &objMP->FSB_Memory[0], &objMP->FSB_Memory[2]);
+			MP256_SetFSB(objMP->FSB_Memory, 2,	33,		48, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 3,	49,		64, &objMP->FSB_Memory[1], &objMP->FSB_Memory[5]);
+			MP256_SetFSB(objMP->FSB_Memory, 4,	65,		80, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 5,	81,		96, &objMP->FSB_Memory[4], &objMP->FSB_Memory[6]);
+			MP256_SetFSB(objMP->FSB_Memory, 6,	97,		128, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 7,	129,	160, &objMP->FSB_Memory[3], &objMP->FSB_Memory[11]);
+			MP256_SetFSB(objMP->FSB_Memory, 8,	161,	192, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 9,	193,	224, &objMP->FSB_Memory[8], &objMP->FSB_Memory[10]);
+			MP256_SetFSB(objMP->FSB_Memory, 10,	225,	256, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 11,	257,	320, &objMP->FSB_Memory[9], &objMP->FSB_Memory[13]);
+			MP256_SetFSB(objMP->FSB_Memory, 12,	321,	384, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 13,	385,	448, &objMP->FSB_Memory[12], &objMP->FSB_Memory[14]);
+			MP256_SetFSB(objMP->FSB_Memory, 14,	449,	512, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 15,	513,	640, &objMP->FSB_Memory[7], &objMP->FSB_Memory[23]);
+			MP256_SetFSB(objMP->FSB_Memory, 16,	641,	768, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 17,	769,	896, &objMP->FSB_Memory[16], &objMP->FSB_Memory[18]);
+			MP256_SetFSB(objMP->FSB_Memory, 18,	897,	1024, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 19,	1025,	1280, &objMP->FSB_Memory[17], &objMP->FSB_Memory[21]);
+			MP256_SetFSB(objMP->FSB_Memory, 20,	1281,	1536, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 21,	1537,	1792, &objMP->FSB_Memory[20], &objMP->FSB_Memory[22]);
+			MP256_SetFSB(objMP->FSB_Memory, 22,	1793,	2048, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 23,	2049,	2304, &objMP->FSB_Memory[19], &objMP->FSB_Memory[27]);
+			MP256_SetFSB(objMP->FSB_Memory, 24,	2305,	2560, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 25,	2561,	2816, &objMP->FSB_Memory[24], &objMP->FSB_Memory[26]);
+			MP256_SetFSB(objMP->FSB_Memory, 26,	2817,	3072, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 27,	3073,	3328, &objMP->FSB_Memory[25], &objMP->FSB_Memory[29]);
+			MP256_SetFSB(objMP->FSB_Memory, 28,	3329,	3584, NULL, NULL);
+			MP256_SetFSB(objMP->FSB_Memory, 29,	3585,	3840, &objMP->FSB_Memory[28], &objMP->FSB_Memory[30]);
+			MP256_SetFSB(objMP->FSB_Memory, 30,	3841,	4096, NULL, NULL);
+			objMP->FSB_RootNode = &objMP->FSB_Memory[15];
 		}
 	}
 	
 	// 释放内存池（对自维护结构体指针使用，和 MP256_Destroy 功能类似）
 	XXAPI void MP256_Unit(MP256_Object objMP)
 	{
-		// 循环释放固定大小区块的MM
-		AVLTree_Destroy(&objMP->FSBMM);
-		// 循环释放大块内存
-		PAMM_Unit(&objMP->BIGMM);
-	}
-	
-	// 添加一种典型大小的管理器
-	XXAPI int MP256_AddFSB(MP256_Object objMP, unsigned int iSize)
-	{
-		int bNew;
-		MM256_Object pMM = AVLTree_AddNode(&objMP->FSBMM, iSize, &bNew);
-		if ( pMM ) {
-			MM256_Init(pMM, iSize);
-			return -1;
+		// 循环释放所有 MMU
+		for ( int i = 0; i < objMP->arrMMU.Count; i++ ) {
+			MMU256_LLNode* pNode = BSMM_GetPtr_Inline(&objMP->arrMMU, i);
+			if ( pNode->objMMU ) {
+				MMU256_Destroy(pNode->objMMU);
+			}
 		}
-		return 0;
+		BSMM_Unit(&objMP->arrMMU);
+		if ( objMP->FSB_Memory ) {
+			mmu_free(objMP->FSB_Memory);
+		}
+		// 循环释放所有大内存块
+		for ( int i = 0; i < objMP->BigMM.Count; i++ ) {
+			MP_BigInfoLL* pInfo = BSMM_GetPtr_Inline(&objMP->BigMM, i);
+			if ( pInfo->Ptr ) {
+				mmu_free(pInfo->Ptr);
+			}
+		}
+		BSMM_Unit(&objMP->BigMM);
+		objMP->LL_BigFree = NULL;
 	}
 	
 	// 从内存池中申请一块内存
-	XXAPI void* MP256_Alloc(MP256_Object objMP)
+	XXAPI void* MP256_Alloc(MP256_Object objMP, unsigned int iSize)
 	{
-		
+		if ( iSize == 0 ) { return NULL; }
+		// 查找符合条件的 FSB 信息
+		FSB256_Item* objFSB = objMP->FSB_RootNode;
+		while ( objFSB ) {
+			if ( iSize < objFSB->MinLength ) {
+				objFSB = objFSB->left;
+			} else if ( iSize > objFSB->MaxLength ) {
+				objFSB = objFSB->right;
+			} else {
+				break;
+			}
+		}
+		if ( objFSB ) {
+			// 选定了 FSB，根据 FSB 区块信息通过 MMU256 分配内存
+			MMU256_Object objMMU = NULL;
+			if ( objFSB->LL_Idle == NULL ) {
+				// 如果没有空闲的内存管理单元，优先使用备用的全空单元，或创建一个新的单元
+				if ( objFSB->LL_Null ) {
+					// 使用备用的全空内存管理单元
+					objMMU = objFSB->LL_Null->objMMU;
+					objFSB->LL_Idle = objFSB->LL_Null;
+					objFSB->LL_Null = NULL;
+				} else if ( objFSB->LL_Free ) {
+					// 创建新的内存管理单元，使用已释放的内存管理单元位置
+					objMMU = MMU256_Create(objFSB->MaxLength);
+					if ( (objMMU == NULL) && objMP->OnError ) {
+						objMP->OnError(objMP, MM_ERROR_CREATEMMU);
+						return NULL;
+					}
+					// 恢复Flag，写入新申请的单元
+					MMU256_LLNode* pNode = objFSB->LL_Free;
+					objMMU->Flag = pNode->Flag;
+					pNode->objMMU = objMMU;
+					// 从 LL_Free 中移除
+					if ( pNode->Next ) {
+						pNode->Next->Prev = NULL;
+					}
+					objFSB->LL_Free = pNode->Next;
+					// 添加到 LL_Idle
+					pNode->Prev = NULL;
+					pNode->Next = NULL;
+					objFSB->LL_Idle = pNode;
+				} else {
+					// 创建新的内存管理单元，创建失败就报错处理
+					objMMU = MMU256_Create(objFSB->MaxLength);
+					if ( (objMMU == NULL) && objMP->OnError ) {
+						objMP->OnError(objMP, MM_ERROR_CREATEMMU);
+						return NULL;
+					}
+					// 将创建好的内存管理单元添加到单元阵列管理器，添加失败就报错处理
+					MMU256_LLNode* pNode = BSMM_Alloc(&objMP->arrMMU);
+					if ( pNode ) {
+						pNode->objMMU = objMMU;
+						pNode->Prev = NULL;
+						pNode->Next = NULL;
+						pNode->Flag = MMU_FLAG_USE | ((objMP->arrMMU.Count - 1) << 8);
+						objFSB->LL_Idle = pNode;
+						// 标记内存管理器单元的 Flag
+						objMMU->Flag = pNode->Flag;
+					} else {
+						MMU256_Destroy(objMMU);
+						if ( objMP->OnError ) {
+							objMP->OnError(objMP, MM_ERROR_ADDMMU);
+							return NULL;
+						}
+					}
+				}
+			} else {
+				// 有空闲的内存管理单元，优先使用空闲的
+				objMMU = objFSB->LL_Idle->objMMU;
+				// 如果空闲的内存管理单元即将满了，将它转移到满载单元链表
+				if ( objMMU->Count >= 255 ) {
+					MMU256_LLNode* pNode = objFSB->LL_Idle;
+					// 从 LL_Idle 中移除
+					if ( pNode->Next ) {
+						pNode->Next->Prev = NULL;
+					}
+					objFSB->LL_Idle = pNode->Next;
+					// 添加到 LL_Full
+					pNode->Prev = NULL;
+					pNode->Next = objFSB->LL_Full;
+					if ( objFSB->LL_Full ) {
+						objFSB->LL_Full->Prev = pNode;
+					}
+					objFSB->LL_Full = pNode;
+				}
+			}
+			return MMU256_Alloc_Inline(objMMU);
+		} else {
+			// 无法选定 FSB，使用 malloc 申请内存
+			MP_MemHead* pHead = mmu_malloc(sizeof(MP_MemHead) + iSize);
+			if ( pHead ) {
+				if ( objMP->LL_BigFree ) {
+					// 优先复用已释放的 BigMM 元素
+					MP_BigInfoLL* pInfo = objMP->LL_BigFree;
+					objMP->LL_BigFree = pInfo->Next;
+					pHead->Flag = MMU_FLAG_EXT;
+					pInfo->Size = iSize;
+					pInfo->Ptr = pHead;
+					return &pHead[1];
+				} else {
+					// 没有已释放的 BigMM 元素，就申请一个新的
+					MP_BigInfoLL* pInfo = BSMM_Alloc(&objMP->BigMM);
+					if ( pInfo ) {
+						pHead->Index = objMP->BigMM.Count;
+						pHead->Flag = MMU_FLAG_EXT;
+						pInfo->Size = iSize;
+						pInfo->Ptr = pHead;
+						return &pHead[1];
+					}
+				}
+				mmu_free(pHead);
+			}
+			return NULL;
+		}
 	}
 	
 	// 将内存池申请的内存释放掉
+	static inline void MP256_LLNode_ClearCheck(FSB256_Item* objFSB, MMU256_LLNode* pNode, int bLL_Full)
+	{
+		// 如果这个内存管理单元已经清空
+		if ( pNode->objMMU->Count == 0 ) {
+			if ( objFSB->LL_Null ) {
+				// 有备用单元时，直接释放掉这个单元
+				MMU256_Destroy(pNode->objMMU);
+				pNode->objMMU = NULL;
+				// 从 LL_Idle 或 LL_Full 中移除
+				if ( pNode->Prev ) {
+					pNode->Prev->Next = pNode->Next;
+				} else {
+					if ( bLL_Full ) {
+						objFSB->LL_Full = pNode->Next;
+					} else {
+						objFSB->LL_Idle = pNode->Next;
+					}
+				}
+				if ( pNode->Next ) {
+					pNode->Next->Prev = pNode->Prev;
+				}
+				// 添加到 LL_Free
+				pNode->Prev = NULL;
+				pNode->Next = objFSB->LL_Free;
+				if ( objFSB->LL_Free ) {
+					objFSB->LL_Free->Prev = pNode;
+				}
+				objFSB->LL_Free = pNode;
+			} else {
+				// 没有备用单元时，让这个单元备用，避免临界状态反复申请和释放内存管理单元，造成性能损失
+				// 从 LL_Idle 或 LL_Full 中移除
+				if ( pNode->Prev ) {
+					pNode->Prev->Next = pNode->Next;
+				} else {
+					if ( bLL_Full ) {
+						objFSB->LL_Full = pNode->Next;
+					} else {
+						objFSB->LL_Idle = pNode->Next;
+					}
+				}
+				if ( pNode->Next ) {
+					pNode->Next->Prev = pNode->Prev;
+				}
+				// 添加到 LL_Null
+				objFSB->LL_Null = pNode;
+				pNode->Prev = NULL;
+				pNode->Next = NULL;
+			}
+		}
+	}
+	static inline void MP256_LLNode_IdleCheck(FSB256_Item* objFSB, MMU256_LLNode* pNode)
+	{
+		if ( pNode->objMMU->Count < 256 ) {
+			// 从 LL_Full 中移除
+			if ( pNode->Prev ) {
+				pNode->Prev->Next = pNode->Next;
+			} else {
+				objFSB->LL_Full = pNode->Next;
+			}
+			if ( pNode->Next ) {
+				pNode->Next->Prev = pNode->Prev;
+			}
+			// 添加到 LL_Idle
+			pNode->Prev = NULL;
+			pNode->Next = objFSB->LL_Idle;
+			if ( objFSB->LL_Idle ) {
+				objFSB->LL_Idle->Prev = pNode;
+			}
+			objFSB->LL_Idle = pNode;
+		}
+	}
 	XXAPI void MP256_Free(MP256_Object objMP, void* ptr)
 	{
-		
+		MMU_ValuePtr v = ptr - sizeof(MMU_Value);
+		if ( (v->ItemFlag & MMU_FLAG_MASK) == MMU_FLAG_MASK ) {
+			// 大内存释放
+			MP_MemHead* pHead = ptr - sizeof(MP_MemHead);
+			MP_BigInfoLL* pInfo = BSMM_GetPtr_Inline(&objMP->BigMM, pHead->Index);
+			mmu_free(pInfo->Ptr);
+			pHead->Flag = 0;
+			pInfo->Ptr = NULL;
+			pInfo->Next = objMP->LL_BigFree;
+			objMP->LL_BigFree = pInfo;
+		} else {
+			// FSB内存释放
+			if ( v->ItemFlag & MMU_FLAG_USE ) {
+				int iMMU = (v->ItemFlag & MMU_FLAG_MASK) >> 8;
+				unsigned char idx = v->ItemFlag & 0xFF;
+				// 获取对应的内存管理器单元链表结构
+				MMU256_LLNode* pNode = BSMM_GetPtr_Inline(&objMP->arrMMU, iMMU);
+				if ( (pNode->objMMU == NULL) && objMP->OnError ) {
+					objMP->OnError(objMP, MM_ERROR_NULLMMU);
+					return;
+				}
+				// 查找符合条件的 FSB 信息
+				FSB256_Item* objFSB = objMP->FSB_RootNode;
+				unsigned int iMaxSize = pNode->objMMU->ItemLength - sizeof(MMU_Value);
+				while ( objFSB ) {
+					if ( iMaxSize < objFSB->MinLength ) {
+						objFSB = objFSB->left;
+					} else if ( iMaxSize > objFSB->MaxLength ) {
+						objFSB = objFSB->right;
+					} else {
+						break;
+					}
+				}
+				if ( (objFSB == NULL) && objMP->OnError ) {
+					objMP->OnError(objMP, MM_ERROR_FINDFSB);
+					return;
+				}
+				// 调用对应 MMU 的释放函数
+				MMU256_FreeIdx_Inline(pNode->objMMU, idx);
+				v->ItemFlag = 0;
+				// 如果是一个满载的内存管理器单元，将它放入空闲单元列表
+				if ( pNode->objMMU->Count >= 255 ) {
+					MP256_LLNode_IdleCheck(objFSB, pNode);
+				}
+				// 如果这个内存管理单元已经清空，将他释放或变为备用单元
+				MP256_LLNode_ClearCheck(objFSB, pNode, 0);
+			}
+		}
 	}
 	
 	// 进行一轮GC，将 标记 或 未标记 的内存全部回收
+	void MP256_GC_RecuFSB(FSB256_Item* objFSB, int bFreeMark)
+	{
+		// 遍历所有 空闲的 和 满载的 内存管理单元，进行标记回收
+		MMU256_LLNode* pNode = objFSB->LL_Idle;
+		while ( pNode ) {
+			MMU256_GC(pNode->objMMU, bFreeMark);
+			pNode = pNode->Next;
+		}
+		pNode = objFSB->LL_Full;
+		while ( pNode ) {
+			MMU256_GC(pNode->objMMU, bFreeMark);
+			pNode = pNode->Next;
+		}
+		// 再次遍历所有 空闲的 和 满载的 内存管理单元，将他们归类到正确的分组
+		pNode = objFSB->LL_Idle;
+		while ( pNode ) {
+			MMU256_LLNode* pNext = pNode->Next;
+			MP256_LLNode_ClearCheck(objFSB, pNode, 0);
+			pNode = pNext;
+		}
+		pNode = objFSB->LL_Full;
+		while ( pNode ) {
+			MMU256_LLNode* pNext = pNode->Next;
+			if ( pNode->objMMU->Count == 0 ) {
+				MP256_LLNode_ClearCheck(objFSB, pNode, -1);
+			} else {
+				MP256_LLNode_IdleCheck(objFSB, pNode);
+			}
+			pNode = pNext;
+		}
+		// 递归调用左子树
+		if ( objFSB->left ) {
+			MP256_GC_RecuFSB(objFSB-> left, bFreeMark);
+		}
+		// 递归调用右子树
+		if ( objFSB->right ) {
+			MP256_GC_RecuFSB(objFSB-> right, bFreeMark);
+		}
+	}
 	XXAPI void MP256_GC(MP256_Object objMP, int bFreeMark)
 	{
-		
+		// 递归回收 FSB 标记的内存
+		MP256_GC_RecuFSB(objMP->FSB_RootNode, bFreeMark);
+		// 循环大内存列表进行回收
+		if ( bFreeMark ) {
+			// 被标记的内存将被回收
+			for ( int i = 0; i < objMP->BigMM.Count; i++ ) {
+				MP_BigInfoLL* pInfo = BSMM_GetPtr_Inline(&objMP->BigMM, i);
+				MP_MemHead* pHead = pInfo->Ptr;
+				if ( pHead->Flag & MMU_FLAG_USE ) {
+					if ( pHead->Flag & MMU_FLAG_GC ) {
+						mmu_free(pInfo->Ptr);
+						pHead->Flag = 0;
+						pInfo->Ptr = NULL;
+						pInfo->Next = objMP->LL_BigFree;
+						objMP->LL_BigFree = pInfo;
+					}
+				}
+			}
+		} else {
+			// 未被标记的内存将被回收
+			for ( int i = 0; i < objMP->BigMM.Count; i++ ) {
+				MP_BigInfoLL* pInfo = BSMM_GetPtr_Inline(&objMP->BigMM, i);
+				MP_MemHead* pHead = pInfo->Ptr;
+				if ( pHead->Flag & MMU_FLAG_USE ) {
+					if ( pHead->Flag & MMU_FLAG_GC ) {
+						pHead->Flag &= ~MMU_FLAG_GC;
+					} else {
+						mmu_free(pInfo->Ptr);
+						pHead->Flag = 0;
+						pInfo->Ptr = NULL;
+						pInfo->Next = objMP->LL_BigFree;
+						objMP->LL_BigFree = pInfo;
+					}
+				}
+			}
+		}
+	}
+	
+#endif
+
+
+
+
+
+/*
+	Memory Pool 64K 
+		内存管理器（可变成员大小的内存池，使用 MM64K 加速分配和释放）
+*/
+
+#ifdef MMU_USE_MP64K
+	
+	// 创建内存池
+	XXAPI MP64K_Object MP64K_Create(int bCustom)
+	{
+		MP64K_Object objMP = mmu_malloc(sizeof(MP64K_Struct));
+		if ( objMP ) {
+			MP64K_Init(objMP, bCustom);
+		}
+		return objMP;
+	}
+	
+	// 销毁内存池
+	XXAPI void MP64K_Destroy(MP64K_Object objMP)
+	{
+		if ( objMP ) {
+			MP64K_Unit(objMP);
+			mmu_free(objMP);
+		}
+	}
+	
+	// 初始化内存池（对自维护结构体指针使用，和 MP64K_Create 功能类似）
+	void MP64K_SetFSB(FSB64K_Item* FSB, int idx, unsigned int iSizeMin, unsigned int iSizeMax, FSB64K_Item* left, FSB64K_Item* right)
+	{
+		FSB[idx].MinLength = iSizeMin;
+		FSB[idx].MaxLength = iSizeMax;
+		FSB[idx].LL_Idle = NULL;
+		FSB[idx].LL_Full = NULL;
+		FSB[idx].LL_Null = NULL;
+		FSB[idx].LL_Free = NULL;
+		FSB[idx].left = left;
+		FSB[idx].right = right;
+	}
+	XXAPI void MP64K_Init(MP64K_Object objMP, int bCustom)
+	{
+		BSMM_Init(&objMP->arrMMU, sizeof(MMU64K_LLNode));
+		BSMM_Init(&objMP->BigMM, sizeof(MP_BigInfoLL));
+		objMP->LL_BigFree = NULL;
+		objMP->OnError = NULL;
+		if ( bCustom == 1 ) {
+			// 添加默认的区块区间 (4层树，针对小内存的方案)
+			//
+			// 二叉树视图 (根据建树顺序插入避免旋转产生额外开销)：
+			//								○
+			//								160
+			//				○								○
+			//				64								320
+			//		○				○				○				○
+			//		32				96				224				448
+			//	○		○		○		○		○		○		○		○
+			//	16		48		80		128		192		256		384		512
+			//
+			objMP->FSB_Memory = mmu_malloc(sizeof(FSB64K_Item) * 15);
+			MP64K_SetFSB(objMP->FSB_Memory, 0,	1,		16, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 1,	17,		32, &objMP->FSB_Memory[0], &objMP->FSB_Memory[2]);
+			MP64K_SetFSB(objMP->FSB_Memory, 2,	33,		48, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 3,	49,		64, &objMP->FSB_Memory[1], &objMP->FSB_Memory[5]);
+			MP64K_SetFSB(objMP->FSB_Memory, 4,	65,		80, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 5,	81,		96, &objMP->FSB_Memory[4], &objMP->FSB_Memory[6]);
+			MP64K_SetFSB(objMP->FSB_Memory, 6,	97,		128, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 7,	129,	160, &objMP->FSB_Memory[3], &objMP->FSB_Memory[11]);
+			MP64K_SetFSB(objMP->FSB_Memory, 8,	161,	192, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 9,	193,	224, &objMP->FSB_Memory[8], &objMP->FSB_Memory[10]);
+			MP64K_SetFSB(objMP->FSB_Memory, 10,	225,	256, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 11,	257,	320, &objMP->FSB_Memory[9], &objMP->FSB_Memory[13]);
+			MP64K_SetFSB(objMP->FSB_Memory, 12,	321,	384, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 13,	385,	448, &objMP->FSB_Memory[12], &objMP->FSB_Memory[14]);
+			MP64K_SetFSB(objMP->FSB_Memory, 14,	449,	512, NULL, NULL);
+			objMP->FSB_RootNode = &objMP->FSB_Memory[7];
+		} else if ( bCustom == 2 ) {
+			// 添加默认的区块区间 (5层树，针对大内存的方案)
+			//
+			// 二叉树视图 (根据建树顺序插入避免旋转产生额外开销)：
+			//																○
+			//																640
+			//								○																○
+			//								160																2304
+			//				○								○								○								○
+			//				64								320								1280							3328
+			//		○				○				○				○				○				○				○				○
+			//		32				96				224				448				896				1792			2816			3840
+			//	○		○		○		○		○		○		○		○		○		○		○		○		○		○		○		○
+			//	16		48		80		128		192		256		384		512		768		1024	1536	2048	2560	3072	3584	4096
+			//
+			objMP->FSB_Memory = mmu_malloc(sizeof(FSB64K_Item) * 31);
+			MP64K_SetFSB(objMP->FSB_Memory, 0,	1,		16, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 1,	17,		32, &objMP->FSB_Memory[0], &objMP->FSB_Memory[2]);
+			MP64K_SetFSB(objMP->FSB_Memory, 2,	33,		48, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 3,	49,		64, &objMP->FSB_Memory[1], &objMP->FSB_Memory[5]);
+			MP64K_SetFSB(objMP->FSB_Memory, 4,	65,		80, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 5,	81,		96, &objMP->FSB_Memory[4], &objMP->FSB_Memory[6]);
+			MP64K_SetFSB(objMP->FSB_Memory, 6,	97,		128, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 7,	129,	160, &objMP->FSB_Memory[3], &objMP->FSB_Memory[11]);
+			MP64K_SetFSB(objMP->FSB_Memory, 8,	161,	192, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 9,	193,	224, &objMP->FSB_Memory[8], &objMP->FSB_Memory[10]);
+			MP64K_SetFSB(objMP->FSB_Memory, 10,	225,	256, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 11,	257,	320, &objMP->FSB_Memory[9], &objMP->FSB_Memory[13]);
+			MP64K_SetFSB(objMP->FSB_Memory, 12,	321,	384, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 13,	385,	448, &objMP->FSB_Memory[12], &objMP->FSB_Memory[14]);
+			MP64K_SetFSB(objMP->FSB_Memory, 14,	449,	512, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 15,	513,	640, &objMP->FSB_Memory[7], &objMP->FSB_Memory[23]);
+			MP64K_SetFSB(objMP->FSB_Memory, 16,	641,	768, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 17,	769,	896, &objMP->FSB_Memory[16], &objMP->FSB_Memory[18]);
+			MP64K_SetFSB(objMP->FSB_Memory, 18,	897,	1024, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 19,	1025,	1280, &objMP->FSB_Memory[17], &objMP->FSB_Memory[21]);
+			MP64K_SetFSB(objMP->FSB_Memory, 20,	1281,	1536, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 21,	1537,	1792, &objMP->FSB_Memory[20], &objMP->FSB_Memory[22]);
+			MP64K_SetFSB(objMP->FSB_Memory, 22,	1793,	2048, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 23,	2049,	2304, &objMP->FSB_Memory[19], &objMP->FSB_Memory[27]);
+			MP64K_SetFSB(objMP->FSB_Memory, 24,	2305,	2560, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 25,	2561,	2816, &objMP->FSB_Memory[24], &objMP->FSB_Memory[26]);
+			MP64K_SetFSB(objMP->FSB_Memory, 26,	2817,	3072, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 27,	3073,	3328, &objMP->FSB_Memory[25], &objMP->FSB_Memory[29]);
+			MP64K_SetFSB(objMP->FSB_Memory, 28,	3329,	3584, NULL, NULL);
+			MP64K_SetFSB(objMP->FSB_Memory, 29,	3585,	3840, &objMP->FSB_Memory[28], &objMP->FSB_Memory[30]);
+			MP64K_SetFSB(objMP->FSB_Memory, 30,	3841,	4096, NULL, NULL);
+			objMP->FSB_RootNode = &objMP->FSB_Memory[15];
+		}
+	}
+	
+	// 释放内存池（对自维护结构体指针使用，和 MP64K_Destroy 功能类似）
+	XXAPI void MP64K_Unit(MP64K_Object objMP)
+	{
+		// 循环释放所有 MMU
+		for ( int i = 0; i < objMP->arrMMU.Count; i++ ) {
+			MMU64K_LLNode* pNode = BSMM_GetPtr_Inline(&objMP->arrMMU, i);
+			if ( pNode->objMMU ) {
+				MMU64K_Destroy(pNode->objMMU);
+			}
+		}
+		BSMM_Unit(&objMP->arrMMU);
+		if ( objMP->FSB_Memory ) {
+			mmu_free(objMP->FSB_Memory);
+		}
+		// 循环释放所有大内存块
+		for ( int i = 0; i < objMP->BigMM.Count; i++ ) {
+			MP_BigInfoLL* pInfo = BSMM_GetPtr_Inline(&objMP->BigMM, i);
+			if ( pInfo->Ptr ) {
+				mmu_free(pInfo->Ptr);
+			}
+		}
+		BSMM_Unit(&objMP->BigMM);
+		objMP->LL_BigFree = NULL;
+	}
+	
+	// 从内存池中申请一块内存
+	XXAPI void* MP64K_Alloc(MP64K_Object objMP, unsigned int iSize)
+	{
+		if ( iSize == 0 ) { return NULL; }
+		// 查找符合条件的 FSB 信息
+		FSB64K_Item* objFSB = objMP->FSB_RootNode;
+		while ( objFSB ) {
+			if ( iSize < objFSB->MinLength ) {
+				objFSB = objFSB->left;
+			} else if ( iSize > objFSB->MaxLength ) {
+				objFSB = objFSB->right;
+			} else {
+				break;
+			}
+		}
+		if ( objFSB ) {
+			// 选定了 FSB，根据 FSB 区块信息通过 MMU64K 分配内存
+			MMU64K_Object objMMU = NULL;
+			if ( objFSB->LL_Idle == NULL ) {
+				// 如果没有空闲的内存管理单元，优先使用备用的全空单元，或创建一个新的单元
+				if ( objFSB->LL_Null ) {
+					// 使用备用的全空内存管理单元
+					objMMU = objFSB->LL_Null->objMMU;
+					objFSB->LL_Idle = objFSB->LL_Null;
+					objFSB->LL_Null = NULL;
+				} else if ( objFSB->LL_Free ) {
+					// 创建新的内存管理单元，使用已释放的内存管理单元位置
+					objMMU = MMU64K_Create(objFSB->MaxLength);
+					if ( (objMMU == NULL) && objMP->OnError ) {
+						objMP->OnError(objMP, MM_ERROR_CREATEMMU);
+						return NULL;
+					}
+					// 恢复Flag，写入新申请的单元
+					MMU64K_LLNode* pNode = objFSB->LL_Free;
+					objMMU->Flag = pNode->Flag;
+					pNode->objMMU = objMMU;
+					// 从 LL_Free 中移除
+					if ( pNode->Next ) {
+						pNode->Next->Prev = NULL;
+					}
+					objFSB->LL_Free = pNode->Next;
+					// 添加到 LL_Idle
+					pNode->Prev = NULL;
+					pNode->Next = NULL;
+					objFSB->LL_Idle = pNode;
+				} else {
+					// 创建新的内存管理单元，创建失败就报错处理
+					objMMU = MMU64K_Create(objFSB->MaxLength);
+					if ( (objMMU == NULL) && objMP->OnError ) {
+						objMP->OnError(objMP, MM_ERROR_CREATEMMU);
+						return NULL;
+					}
+					// 将创建好的内存管理单元添加到单元阵列管理器，添加失败就报错处理
+					MMU64K_LLNode* pNode = BSMM_Alloc(&objMP->arrMMU);
+					if ( pNode ) {
+						pNode->objMMU = objMMU;
+						pNode->Prev = NULL;
+						pNode->Next = NULL;
+						pNode->Flag = MMU_FLAG_USE | ((objMP->arrMMU.Count - 1) << 16);
+						objFSB->LL_Idle = pNode;
+						// 标记内存管理器单元的 Flag
+						objMMU->Flag = pNode->Flag;
+					} else {
+						MMU64K_Destroy(objMMU);
+						if ( objMP->OnError ) {
+							objMP->OnError(objMP, MM_ERROR_ADDMMU);
+							return NULL;
+						}
+					}
+				}
+			} else {
+				// 有空闲的内存管理单元，优先使用空闲的
+				objMMU = objFSB->LL_Idle->objMMU;
+				// 如果空闲的内存管理单元即将满了，将它转移到满载单元链表
+				if ( objMMU->Count >= 65535 ) {
+					MMU64K_LLNode* pNode = objFSB->LL_Idle;
+					// 从 LL_Idle 中移除
+					if ( pNode->Next ) {
+						pNode->Next->Prev = NULL;
+					}
+					objFSB->LL_Idle = pNode->Next;
+					// 添加到 LL_Full
+					pNode->Prev = NULL;
+					pNode->Next = objFSB->LL_Full;
+					if ( objFSB->LL_Full ) {
+						objFSB->LL_Full->Prev = pNode;
+					}
+					objFSB->LL_Full = pNode;
+				}
+			}
+			return MMU64K_Alloc_Inline(objMMU);
+		} else {
+			// 无法选定 FSB，使用 malloc 申请内存
+			MP_MemHead* pHead = mmu_malloc(sizeof(MP_MemHead) + iSize);
+			if ( pHead ) {
+				if ( objMP->LL_BigFree ) {
+					// 优先复用已释放的 BigMM 元素
+					MP_BigInfoLL* pInfo = objMP->LL_BigFree;
+					objMP->LL_BigFree = pInfo->Next;
+					pHead->Flag = MMU_FLAG_EXT;
+					pInfo->Size = iSize;
+					pInfo->Ptr = pHead;
+					return &pHead[1];
+				} else {
+					// 没有已释放的 BigMM 元素，就申请一个新的
+					MP_BigInfoLL* pInfo = BSMM_Alloc(&objMP->BigMM);
+					if ( pInfo ) {
+						pHead->Index = objMP->BigMM.Count;
+						pHead->Flag = MMU_FLAG_EXT;
+						pInfo->Size = iSize;
+						pInfo->Ptr = pHead;
+						return &pHead[1];
+					}
+				}
+				mmu_free(pHead);
+			}
+			return NULL;
+		}
+	}
+	
+	// 将内存池申请的内存释放掉
+	static inline void MP64K_LLNode_ClearCheck(FSB64K_Item* objFSB, MMU64K_LLNode* pNode, int bLL_Full)
+	{
+		// 如果这个内存管理单元已经清空
+		if ( pNode->objMMU->Count == 0 ) {
+			if ( objFSB->LL_Null ) {
+				// 有备用单元时，直接释放掉这个单元
+				MMU64K_Destroy(pNode->objMMU);
+				pNode->objMMU = NULL;
+				// 从 LL_Idle 或 LL_Full 中移除
+				if ( pNode->Prev ) {
+					pNode->Prev->Next = pNode->Next;
+				} else {
+					if ( bLL_Full ) {
+						objFSB->LL_Full = pNode->Next;
+					} else {
+						objFSB->LL_Idle = pNode->Next;
+					}
+				}
+				if ( pNode->Next ) {
+					pNode->Next->Prev = pNode->Prev;
+				}
+				// 添加到 LL_Free
+				pNode->Prev = NULL;
+				pNode->Next = objFSB->LL_Free;
+				if ( objFSB->LL_Free ) {
+					objFSB->LL_Free->Prev = pNode;
+				}
+				objFSB->LL_Free = pNode;
+			} else {
+				// 没有备用单元时，让这个单元备用，避免临界状态反复申请和释放内存管理单元，造成性能损失
+				// 从 LL_Idle 或 LL_Full 中移除
+				if ( pNode->Prev ) {
+					pNode->Prev->Next = pNode->Next;
+				} else {
+					if ( bLL_Full ) {
+						objFSB->LL_Full = pNode->Next;
+					} else {
+						objFSB->LL_Idle = pNode->Next;
+					}
+				}
+				if ( pNode->Next ) {
+					pNode->Next->Prev = pNode->Prev;
+				}
+				// 添加到 LL_Null
+				objFSB->LL_Null = pNode;
+				pNode->Prev = NULL;
+				pNode->Next = NULL;
+			}
+		}
+	}
+	static inline void MP64K_LLNode_IdleCheck(FSB64K_Item* objFSB, MMU64K_LLNode* pNode)
+	{
+		if ( pNode->objMMU->Count < 65536 ) {
+			// 从 LL_Full 中移除
+			if ( pNode->Prev ) {
+				pNode->Prev->Next = pNode->Next;
+			} else {
+				objFSB->LL_Full = pNode->Next;
+			}
+			if ( pNode->Next ) {
+				pNode->Next->Prev = pNode->Prev;
+			}
+			// 添加到 LL_Idle
+			pNode->Prev = NULL;
+			pNode->Next = objFSB->LL_Idle;
+			if ( objFSB->LL_Idle ) {
+				objFSB->LL_Idle->Prev = pNode;
+			}
+			objFSB->LL_Idle = pNode;
+		}
+	}
+	XXAPI void MP64K_Free(MP64K_Object objMP, void* ptr)
+	{
+		MMU_ValuePtr v = ptr - sizeof(MMU_Value);
+		if ( (v->ItemFlag & MMU_FLAG_MASK) == MMU_FLAG_MASK ) {
+			// 大内存释放
+			MP_MemHead* pHead = ptr - sizeof(MP_MemHead);
+			MP_BigInfoLL* pInfo = BSMM_GetPtr_Inline(&objMP->BigMM, pHead->Index);
+			mmu_free(pInfo->Ptr);
+			pHead->Flag = 0;
+			pInfo->Ptr = NULL;
+			pInfo->Next = objMP->LL_BigFree;
+			objMP->LL_BigFree = pInfo;
+		} else {
+			// FSB内存释放
+			if ( v->ItemFlag & MMU_FLAG_USE ) {
+				int iMMU = (v->ItemFlag & MMU_FLAG_MASK) >> 16;
+				unsigned char idx = v->ItemFlag & 0xFFFF;
+				// 获取对应的内存管理器单元链表结构
+				MMU64K_LLNode* pNode = BSMM_GetPtr_Inline(&objMP->arrMMU, iMMU);
+				if ( (pNode->objMMU == NULL) && objMP->OnError ) {
+					objMP->OnError(objMP, MM_ERROR_NULLMMU);
+					return;
+				}
+				// 查找符合条件的 FSB 信息
+				FSB64K_Item* objFSB = objMP->FSB_RootNode;
+				unsigned int iMaxSize = pNode->objMMU->ItemLength - sizeof(MMU_Value);
+				while ( objFSB ) {
+					if ( iMaxSize < objFSB->MinLength ) {
+						objFSB = objFSB->left;
+					} else if ( iMaxSize > objFSB->MaxLength ) {
+						objFSB = objFSB->right;
+					} else {
+						break;
+					}
+				}
+				if ( (objFSB == NULL) && objMP->OnError ) {
+					objMP->OnError(objMP, MM_ERROR_FINDFSB);
+					return;
+				}
+				// 调用对应 MMU 的释放函数
+				MMU64K_FreeIdx_Inline(pNode->objMMU, idx);
+				v->ItemFlag = 0;
+				// 如果是一个满载的内存管理器单元，将它放入空闲单元列表
+				if ( pNode->objMMU->Count >= 65535 ) {
+					MP64K_LLNode_IdleCheck(objFSB, pNode);
+				}
+				// 如果这个内存管理单元已经清空，将他释放或变为备用单元
+				MP64K_LLNode_ClearCheck(objFSB, pNode, 0);
+			}
+		}
+	}
+	
+	// 进行一轮GC，将 标记 或 未标记 的内存全部回收
+	void MP64K_GC_RecuFSB(FSB64K_Item* objFSB, int bFreeMark)
+	{
+		// 遍历所有 空闲的 和 满载的 内存管理单元，进行标记回收
+		MMU64K_LLNode* pNode = objFSB->LL_Idle;
+		while ( pNode ) {
+			MMU64K_GC(pNode->objMMU, bFreeMark);
+			pNode = pNode->Next;
+		}
+		pNode = objFSB->LL_Full;
+		while ( pNode ) {
+			MMU64K_GC(pNode->objMMU, bFreeMark);
+			pNode = pNode->Next;
+		}
+		// 再次遍历所有 空闲的 和 满载的 内存管理单元，将他们归类到正确的分组
+		pNode = objFSB->LL_Idle;
+		while ( pNode ) {
+			MMU64K_LLNode* pNext = pNode->Next;
+			MP64K_LLNode_ClearCheck(objFSB, pNode, 0);
+			pNode = pNext;
+		}
+		pNode = objFSB->LL_Full;
+		while ( pNode ) {
+			MMU64K_LLNode* pNext = pNode->Next;
+			if ( pNode->objMMU->Count == 0 ) {
+				MP64K_LLNode_ClearCheck(objFSB, pNode, -1);
+			} else {
+				MP64K_LLNode_IdleCheck(objFSB, pNode);
+			}
+			pNode = pNext;
+		}
+		// 递归调用左子树
+		if ( objFSB->left ) {
+			MP64K_GC_RecuFSB(objFSB-> left, bFreeMark);
+		}
+		// 递归调用右子树
+		if ( objFSB->right ) {
+			MP64K_GC_RecuFSB(objFSB-> right, bFreeMark);
+		}
+	}
+	XXAPI void MP64K_GC(MP64K_Object objMP, int bFreeMark)
+	{
+		// 递归回收 FSB 标记的内存
+		MP64K_GC_RecuFSB(objMP->FSB_RootNode, bFreeMark);
+		// 循环大内存列表进行回收
+		if ( bFreeMark ) {
+			// 被标记的内存将被回收
+			for ( int i = 0; i < objMP->BigMM.Count; i++ ) {
+				MP_BigInfoLL* pInfo = BSMM_GetPtr_Inline(&objMP->BigMM, i);
+				MP_MemHead* pHead = pInfo->Ptr;
+				if ( pHead->Flag & MMU_FLAG_USE ) {
+					if ( pHead->Flag & MMU_FLAG_GC ) {
+						mmu_free(pInfo->Ptr);
+						pHead->Flag = 0;
+						pInfo->Ptr = NULL;
+						pInfo->Next = objMP->LL_BigFree;
+						objMP->LL_BigFree = pInfo;
+					}
+				}
+			}
+		} else {
+			// 未被标记的内存将被回收
+			for ( int i = 0; i < objMP->BigMM.Count; i++ ) {
+				MP_BigInfoLL* pInfo = BSMM_GetPtr_Inline(&objMP->BigMM, i);
+				MP_MemHead* pHead = pInfo->Ptr;
+				if ( pHead->Flag & MMU_FLAG_USE ) {
+					if ( pHead->Flag & MMU_FLAG_GC ) {
+						pHead->Flag &= ~MMU_FLAG_GC;
+					} else {
+						mmu_free(pInfo->Ptr);
+						pHead->Flag = 0;
+						pInfo->Ptr = NULL;
+						pInfo->Next = objMP->LL_BigFree;
+						objMP->LL_BigFree = pInfo;
+					}
+				}
+			}
+		}
 	}
 	
 #endif

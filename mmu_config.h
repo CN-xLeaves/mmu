@@ -5,6 +5,8 @@
 #define MMU_USE_SAMM
 #define MMU_USE_MBMU
 #define MMU_USE_BSMM
+#define MMU_USE_MMU256
+#define MMU_USE_MMU64K
 #define MMU_USE_MM256
 #define MMU_USE_MM64K
 #define MMU_USE_MP256

@@ -75,7 +75,9 @@ int main(int argc, char** argv)
 	//test_mmu256();
 	//test_mmu64k();
 	//test_mm256();
-	test_mm64k();
+	//test_mm64k();
+	//test_mp256();
+	test_mp64k();
 	//test_ssstk();
 	//test_psstk();
 	//test_sdstk();
